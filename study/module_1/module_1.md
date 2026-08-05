@@ -547,7 +547,39 @@ Go run the Module 1 exercises — I'll be here.
 Confirmed, and worth knowing precisely: yes, Supabase gives you a built-in email sender for auth emails (confirmation, magic link, password reset, invite) automatically, no separate purchase — but it's built for demos, not production. Two hard restrictions: it's capped at roughly 2 emails per hour project-wide across every email type combined, and — this is the one that would actually block you during development — it will only deliver to email addresses that are already team members on your Supabase organization; anything else gets rejected outright with an "address not authorized" error. So it's genuinely fine for exactly what you're doing right now (you, testing, on your own email), but a real receptionist signing up with their own inbox wouldn't receive anything.
 
 For production, you connect your own SMTP provider under Authentication → SMTP Settings — Resend, SendGrid, AWS SES, Mailgun are the common choices, and Resend has a free tier around 3,000 emails/month, SendGrid similar at the free tier — realistically free at your scale for a long while, just requires a five-minute signup and pasting credentials into that settings page. Not something to worry about now — worth remembering when you get to Module 10's login/auth territory for real. 
-GitHub
-GitHub
 
-Go ahead and get that profiles row inserted, then pick the Module 1 exercises back up.
+**1. "Full admin privileges" — clarifying, and correcting my own imprecision.**
+
+I meant Supabase's own backend access — creating a user via the dashboard uses Supabase's elevated service-role API to write directly into `auth.users`, bypassing normal signup flow (email confirmation, CAPTCHA, etc.). That's entirely separate from your app's `role` column in `profiles`. Two unrelated systems, same word:
+- **Supabase dashboard access** — who can log into supabase.com and manage your project. Controlled by Supabase's own org/team membership. Nothing to do with your schema.
+- **App-level `role = 'admin'`** — purely something *you* invented in `profiles`. Supabase has zero awareness of it. Creating a user via the dashboard sets no role at all, because — as we found — it doesn't even create a `profiles` row. When you manually insert that row, you pick the role yourself. Nothing auto-elevates anyone.
+
+So: restricting who gets `role = 'admin'` is entirely on you, at the point you write that INSERT. Your MVP plan (no public registration page, you provision accounts via dashboard + manual profile inserts) is sound — for a handful of known staff, that's less attack surface than open self-signup, not a corner cut.
+
+**2. Why `profiles` exists, and correcting how I framed the missing trigger.**
+
+`auth.users` is Supabase-managed — you're discouraged from bolting your own columns onto it directly, since Supabase's own auth system owns that table's shape and can change it under you. `profiles` is your own table, fully yours, linked 1:1 by shared `id`, for exactly the app-specific stuff Supabase's auth has no business knowing (`role`, `clinic_id`, `display_name`). Every other table (`patients`, `visits`, etc.) references `profiles`, not `auth.users` directly, for that same reason of staying inside schema you fully control.
+
+Correction on the trigger: I shouldn't have called it a "future addition" like it was a deliberate deferral. I checked — it's not mentioned once across all 12 iterations. Nobody discussed it; it's an omission, not a considered decision. Since you're manually provisioning every user anyway right now, you may actually prefer doing it by hand — manual review before any role gets assigned is arguably safer at your current scale. If you want it later, it's cheap (one function, one trigger, doesn't touch existing data — a safe Module 9 change):
+```sql
+create or replace function handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id) values (new.id); -- role defaults to 'receptionist'
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure handle_new_user();
+```
+`security definer` here for the same reason you've already seen twice (`process_new_complaint_course`, `process_new_invoice`) — writing into `public.profiles` from an event on `auth.users` crosses a privilege boundary. Your call whether to add this now or keep doing it by hand.
+
+**3. `clinic_id` — yes, `clinics` exists.**
+
+It's the first table in the migration file, created before `profiles` specifically so `profiles.clinic_id` could reference it. Nullable — correct for your admin test row, since admins span all clinics by design. Leave it `null` for that row. You'd only need a real `clinics` row if you were testing a `receptionist`/`clinician` profile instead.
+
+**4. MRN uniqueness — your understanding is exactly correct.**
+
+`unique(owner_id, mrn)` only earns its keep in the shared-database, multi-chain scenario — Chain A and Chain B can both legally have `mrn = 'TEST01'` as long as `owner_id` differs. In the isolated-per-chain-database model, it's redundant (only one chain ever exists in that database, so it'd behave identically to a plain `unique(mrn)`) but harmless to leave in. Same conditional-but-harmless shape as the cross-chain trigger and the `businesses` table question from earlier — you're generalizing that pattern correctly on your own now.
