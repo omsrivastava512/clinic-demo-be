@@ -1,5 +1,7 @@
 # Module 1 — Tables, Columns & Constraints
 
+# [2 August 2026]
+
 Here's `patients`, top to bottom, in plain terms:
 
 ```sql
@@ -86,7 +88,7 @@ values ('<paste admin id>', 'TEST01', 'Another Patient');
 **Comprehension check** (no rush — just tell me in your own words): why does `unique(owner_id, mrn)` make more sense here than a plain `unique(mrn)` across the whole table?
 
 
----
+# [2 August 2026]
 
 Good — these are all real questions, and taking the time to actually understand each one now is exactly the point of doing this slowly. Let me go through them in order.
 
@@ -237,7 +239,7 @@ No retry, at any layer. `gen_random_uuid()` runs once per insert; if by some cos
 
 Go ahead and work through the Module 1 exercises whenever you're ready — I'll be here for whatever comes up.
 
----
+# [3 August 2026]
 
 Good — this is a real document with a lot of distinct threads, and I read through all of it. Going topic by topic, in the order you raised them.
 
@@ -331,7 +333,7 @@ Here's the precise mechanics: neither Postgres nor Supabase has any built-in aut
 
 The engineering distinction worth having, though, is *which* errors deserve an automatic retry versus which deserve a message asking the human to fix something: a network blip or a transient server-side hiccup is a good candidate for automatic retry (the same data, resent a moment later, will likely succeed, since nothing about the data itself was wrong) — but a constraint violation like a duplicate MRN is a bad candidate for automatic retry, because resending identical data will just fail identically every time; that class needs a human to correct the input, not a machine to try again. So the right design isn't "retry everything" or "retry nothing" — it's catching every failure at minimum (so nothing is ever silently lost), and choosing automatic retry only for the transient, not-the-data's-fault category. This is exactly the kind of thing Module 10 gestures at conceptually — the actual code for it is properly deferred until you're building real forms, but the principle (every insert needs its failure path handled, not just its success path) is worth carrying with you now.
 
----
+# [3 August 2026]
 
 No visuals this round — pure text, as asked. Going through both documents in order.
 
@@ -423,7 +425,7 @@ One thing worth flagging precisely because of this: your `codebase-context.md` d
 
 Whenever you find or resolve something new, just tell me and I'll fold it into this list on request. Ready to keep going whenever you are.
 
----
+# [4 August 2026]
 
 No visual this time, staying with your preference for straight discussion. Going through everything in order.
 
@@ -503,7 +505,7 @@ Given that, here are the actual options, laid out plainly rather than picked for
 
 My honest read: Option C is the pragmatic choice for where you are right now — no migration, ships fastest, and matches what you're already describing wanting to do. The one thing worth deciding explicitly rather than letting slide is whether "same patient + same date" is a safe-enough proxy for "one session" at your actual clinic's real patient flow, since that's the one assumption the whole approach quietly depends on.
 
----
+# [4 August 2026]
 
 No visuals, staying with text as before.
 
@@ -542,6 +544,8 @@ Concretely, if you do build this: the cheapest real safety net, before or alongs
 Given how much ground this conversation has covered — you've been doing real architectural reasoning for several exchanges now, correctly, but entirely on paper. I'd go do the **Module 1 hands-on exercises** now, the ones still sitting untouched from several turns back — insert-that-should-fail, insert-that-should-succeed, duplicate-MRN rejection. You've more than earned the conceptual grounding at this point; running actual SQL against a real table and watching Postgres respond is the part that turns everything we've discussed from "things I was told" into "things I've verified myself" — which was the whole point you set out with.
 
 Go run the Module 1 exercises — I'll be here.
+
+# [5 August 2026]
 
 ### SMTP — checking current specifics rather than relying on memory, since this affects a real decision you're weighing
 Confirmed, and worth knowing precisely: yes, Supabase gives you a built-in email sender for auth emails (confirmation, magic link, password reset, invite) automatically, no separate purchase — but it's built for demos, not production. Two hard restrictions: it's capped at roughly 2 emails per hour project-wide across every email type combined, and — this is the one that would actually block you during development — it will only deliver to email addresses that are already team members on your Supabase organization; anything else gets rejected outright with an "address not authorized" error. So it's genuinely fine for exactly what you're doing right now (you, testing, on your own email), but a real receptionist signing up with their own inbox wouldn't receive anything.
