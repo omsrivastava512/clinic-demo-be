@@ -154,9 +154,7 @@ The only way P becomes valid at Clinic 2 is if someone *at Clinic 2* opens a com
 
 So the direct answer: **chain membership is necessary but not sufficient.** `owner_id` matching is what stops a patient from a totally different chain being seen at all — that's the hard wall. But *within* the same chain, per-branch visibility is governed entirely by attendance history — whether a `patient_clinic_access` row exists for that exact `(patient, clinic)` pair — and that row only gets created the first time staff *at that specific branch* actually open a complaint course for that patient. It's modeling something true in the real world: three branches can share an owner, but that doesn't mean Branch 3's front desk has ever laid eyes on this person, and they shouldn't see the record until they have.
 
-# [6 Aug 2026 - Module 2 conceptual pass - I - Follow up]
-
-Good call on the file — that's exactly the right instinct, and I should've defaulted to it without you asking. I'll set it up now and keep appending to it as we go, same structure as your Module 1 handover's running log. Let me work through everything else first, then create it at the end with what we've found today.
+# [6 Aug 2026 - Module 2 conceptual pass - I - Follow up - II]
 
 ## Soft delete — confirmed, you've got it right
 
@@ -255,6 +253,158 @@ new.clinic_id := (select clinic_id from profiles where id = auth.uid());
 Your two scenarios, quickly separated, because they're actually different questions: **single-clinic chain, can we just guess clinic_id** — that's a UX/default-inference question (auto-select the only option), not a security one; you'd still want it enforced server-side regardless of whether the frontend conveniently pre-fills it. **Receptionist scoped to one clinic, derive instead of trust** — that's the real security question, and it's a legitimate improvement worth building deliberately, not something wrong with the current design so much as something the current design hasn't gotten to yet.
 
 I'm not resolving this now — it's a real design decision worth sitting with with fresh eyes, probably around when you get to Module 5/6's RLS and SECURITY DEFINER material. Logging it as open.
+
+# [8 Aug 2026] - Module 2 Conceptual Pass - I - Follow up - III
+
+## M2-05 — Invoice Trigger Redone, Full Visit Workflow, Security Definer Scope, Admin Views
+
+The naming convention — good idea, doing it now. Every response from here gets an ID like the one above: `M{module}-R{number}`. Retroactively, so you can point at anything already said:
+
+- **M2-01** — FK basics: `references`, `on delete cascade`, reference vs. transactional tables, the `visits` anchor
+- **M2-02** — Many-to-many junctions, FK existence-vs-correctness, optional/required FKs, denormalized snapshots, indexing FKs
+- **M2-03** — Q&A: gaps log created, `owner_id`/`clinician_id` role gaps, `patient_alerts` skepticism, first invoice-trigger pass, derive-vs-validate, the chain walkthrough
+- **M2-04** — "Ultimate detail": one-to-one via shared PK, circular FK, multi-FK-same-table, NULL semantics, composite-unique scoping, many-side-holds-FK rule, the denormalization gap, full dependency ordering
+- **M2-05** — this one
+
+So your two references from this message: the unread "bring it all, ultimate detail" one is **M2-04**. The one before it, with confirm/delete and `patient_alerts`, is **M2-03**. That's exactly the confusion this fixes.
+
+Now let me redo the invoice trigger properly, with actual numbers this time, because the abstract version clearly didn't land.
+
+---
+
+## The three separate things, three separate tables — no ambiguity this time
+
+- **`invoices.id`** — table: `invoices`. Real primary key, `uuid default gen_random_uuid()`. Generated instantly on row creation, unrelated to any trigger, never human-facing. The row's true identity.
+- **`invoices.invoice_number`** — table: `invoices`, same table, different column, NOT the primary key. Plain text, e.g. `"INV-2026-0043"`. Set by a trigger, not the client.
+- **`clinics.invoice_counter`** — table: `clinics`. A completely different table from `invoices`. Plain integer. Not an identifier of anything by itself — a running tally, per clinic, of how many invoices that clinic has had.
+
+## Confirming directly: `process_new_invoice()` is the merged function
+
+Yes — this is exactly the thing I described earlier as "the old two triggers combined into one." Not something different. I just wasn't consistently naming it, which is what caused the confusion. From here on, every time I mean this function, I'll say `process_new_invoice()` by name, every time.
+
+## The trigger, walked through with real numbers
+
+Say Clinic A's row in `clinics` currently has `invoice_counter = 42` — meaning 42 invoices have ever been created at Clinic A. A receptionist's action eventually results in this running:
+
+```sql
+insert into invoices (clinic_id, patient_id, amount_in_paise, date, visit_id)
+values ('<clinic-a-uuid>', '<patient-uuid>', 50000, current_date, '<visit-uuid>');
+```
+
+**Before** this row is actually written into the **`invoices`** table — table name, explicit, every time from here — the trigger `invoices_process_new` fires. It is attached to `invoices`, it fires on `INSERT` only, and it runs the function `process_new_invoice()`.
+
+Inside that function:
+
+1. `declare next_num integer;` — a scratch variable, existing only for this one function call, empty so far.
+2. The submitted `clinic_id` gets checked against `patient_clinic_access` — confirms this patient genuinely has access at Clinic A. Assume it passes.
+3. `update clinics set invoice_counter = invoice_counter + 1 where id = new.clinic_id returning invoice_counter into next_num;`
+
+   One line, doing all of this together: go to the **`clinics`** table (a different table from the one being inserted into), find the one row where `id` = Clinic A's uuid, take its `invoice_counter` (42), set it to 43, and immediately hand that new value straight back into `next_num`. After this line: `clinics.invoice_counter` is permanently 43 in the database. `next_num` — a temporary variable, stored nowhere — now holds 43.
+4. `new.invoice_number := 'INV-' || to_char(now(), 'YYYY') || '-' || lpad(next_num::text, 4, '0');`
+
+   Takes the 43 sitting in `next_num`, formats it as `"0043"`, glues on `"INV-"` and the year, produces `"INV-2026-0043"`, and assigns it to `new.invoice_number` — `new` meaning the row that's about to land in `invoices`.
+5. Function returns, Postgres finishes the insert it was already doing, and the row that ends up in `invoices` has `invoice_number = 'INV-2026-0043'` — a value the receptionist's frontend never sent, never needed to send.
+
+**"What needs the counter":** nothing consumes it as a reference — nothing points a foreign key at `clinics.invoice_counter`. It's memory, nothing more: "how far have we counted for this clinic," so the *next* invoice at Clinic A knows to become 44, not 43 again. It gets read, bumped, and its new value is borrowed once, briefly, to build a display string for a totally different column on a totally different table (`invoices.invoice_number`), and then it's done.
+
+**"Returns to what":** into `next_num` — a variable that exists only inside this one function call, used two lines later, for its own internal purpose. Nothing outside this function ever sees "43" directly. The receptionist's frontend eventually gets back the finished row, including the already-formatted `invoice_number = "INV-2026-0043"` — never the raw counter value.
+
+## What's split, what's combined — laid out directly
+
+| Trigger | Attached to table | Fires on | Runs function | What it does |
+|---|---|---|---|---|
+| `invoices_process_new` | `invoices` | `BEFORE INSERT` only — never on UPDATE | `process_new_invoice()` | The merged function. Validates `clinic_id`/`patient_id`, increments `clinics.invoice_counter`, generates `invoice_number`. Descendant of the old v3 two-trigger setup — the alphabetical-ordering fix you already know. |
+| `invoices_validate_clinic_id` | `invoices` | `BEFORE UPDATE` only — never on INSERT | `validate_invoice_clinic_id()` | Separate, newer (v9). If `clinic_id`/`patient_id` change on an *existing* invoice, re-checks the pairing. Never touches the counter or `invoice_number`. No old-trigger ancestor — this problem (update-time tenancy) didn't exist before v9 named it. |
+
+Both sit on the same table. Split by *event*, not by table.
+
+---
+
+## The full visit → invoice workflow
+
+Honesty check first: I have `codebase-context.md` (a prose description of the frontend) and the full schema (which tells me the required *backend* dependency order with total certainty), but not your actual current frontend code. That doc itself says Supabase integration is still "upcoming" and the app currently runs on mock data — so what follows is what the schema requires, informed by hints in that doc, not a report of confirmed current behavior. I'll flag every place I'm inferring versus stating a schema fact.
+
+**Entry point.** Your context doc names a real component, `VisitWorkflow`, gated behind an `isStarted` flag and a "Start Workflow" button — but the *stated purpose* given for that gate is specifically "prevent the daily ledger's auto-scroll from hijacking page load on open," not explicitly "this is how a visit begins for a specific patient." It might be the same thing wearing two hats, or it might not — I can't confirm that leap from the doc alone. What I *can* say with more confidence: the same doc names a "Single-Screen Session Start" pipeline as a deliberate design goal, which pushes against your multi-screen-wizard mental model — it suggests something more consolidated than patient → button → separate complaint screen → separate procedure screen as distinct navigations. Worth opening `VisitWorkflow`'s actual source to settle this for real; I'm not going to pretend I know for certain.
+
+**Complaint selection — your direct question, answered with full confidence.** Yes: populating this needs nothing but a read.
+
+```sql
+select * from complaint_courses where patient_id = '<uuid>' and status = 'Active';
+```
+
+A `SELECT` never fires an `INSERT`/`UPDATE` trigger, creates no row, costs nothing, and is completely decoupled from any notion of "a visit has started" in the database's eyes. You can check as many times as you like with zero side effects.
+
+One real structural thing worth flagging here, though, tying straight back to something already in your notes: `visits.complaint_course_id` is singular — `uuid not null references complaint_courses(id)`, one value, not a list. The schema models **one complaint per visit**, not one session covering several complaints. If the UI ever lets someone select two active complaints for what feels like a single sitting (plausible, given the "Composite Key Billing" `complaintId::procedureId` pattern your own doc describes), the backend equivalent isn't one `visits` row with two complaints attached — it's *two* `visits` rows, same `date`, one per complaint. This is the exact mechanical shape of the "no session/encounter concept, only `patient_id` + `date` approximates grouping" gap you already have logged, and the Option A/B/C invoice decision sitting on your to-resolve list is precisely about what happens next — do those two visits get billed as two invoices, or batched into one. Good moment to notice exactly where that decision bites.
+
+**Procedure logger.** Same story — a read, nothing more:
+
+```sql
+select s.*, coalesce(csp.price_in_paise, s.standalone_price_in_paise) as effective_price
+from services s
+left join clinic_service_prices csp on csp.service_id = s.id and csp.clinic_id = '<clinic-uuid>';
+```
+
+Populate the list, compute the effective per-clinic price, zero writes, zero triggers.
+
+**Pre-selection / "last used" — worth taking seriously, and it's not a new idea.** Your own codebase context already names this: "**Repeat-Visit Autofill** workflow for high-volume returning therapy patients." Worth grepping your actual frontend for that exact term to see what's already built versus just named as a goal — I only have the description, not the component.
+
+Either way, here's the good news: this needs **zero schema changes**. Everything required already exists as a queryable join across tables you already have:
+
+```sql
+-- most recent complaint course treated
+select complaint_course_id from visits
+where patient_id = '<uuid>' order by date desc, created_at desc limit 1;
+
+-- services logged on that same visit
+select service_id from visit_services
+where visit_id = '<that visit's id>';
+```
+
+Both are ordinary reads against existing relationships — the many-to-many and FK material from earlier applies directly here, this is just that material put to work. If you ever want something smarter than "literally last time" — like a stored "prescribed program" per complaint course, distinct from whatever happened to get logged last visit — *that* would need new schema (something like a `prescribed_services` concept). Not needed today; worth keeping in the back of your mind given your own instinct to structure things for configurability now rather than overhaul later.
+
+**The actual submit moment — this is what answers the counter-timing question.** Two pieces of your own documentation point the same direction. First, `visits` carries the comment "MVP WORKFLOW: Row existing = session complete + paid. No status lifecycle." Second, `invoices.payment_status` defaults to `'Paid'`, with the comment "Receptionist creates one entry *after* session done + paid." Third — and this is the strongest signal — the "Recursive Complaint-Orphan Stripping" safeguard operates on a "**final invoice payload**," assembled from everything selected across complaints and procedures, stripped of orphans, "**before submitting**." That phrase implies one coherent payload built up entirely in local/frontend state across the whole flow, submitted once.
+
+Put together, the most likely design: nothing touches the database until one final confirm/submit action. At that moment — in the dependency order the schema forces, which we already mapped fully in M2-04 — the flow creates, in order: a new `complaint_courses` row only if this is a genuinely new complaint (not one being selected from the existing active list) → a `visits` row → one `visit_services` row per logged procedure → an `invoices` row. Whether that's literally one network call or a short sequence fired together by one button click, I can't know without the real integration code — but from the database's perspective, and the user's perceived experience, it's one action producing one finished visit and one finished invoice, not a visit sitting half-written while procedures are still being decided.
+
+**Which directly answers your counter question:** `clinics.invoice_counter` increments exactly once, at the very last of those steps — the moment the `invoices` row insert actually fires. Not at "Start Workflow," not at complaint selection, not while procedures are being logged. Only there.
+
+Concretely worth opening to confirm all this for real: `VisitWorkflow`, `ProcedureLogger/index.tsx`, `useProcedureLogger.tsx`, and whatever function eventually wires the submit action to Supabase once that integration exists.
+
+---
+
+## Security Definer — deferred, on purpose
+
+This is Module 6 — "SECURITY DEFINER & Self-Enforcing Triggers," anchored on `process_new_complaint_course()` and `validate_owner_is_admin()`. Not teaching it now, exactly as you asked. You'll get the real mechanics — what it is under the hood, the syntax, where it's declared — there.
+
+## "Which staff member is legitimate at this clinic"
+
+Correct call — that's RLS, Module 5 (with a Module 6 self-enforcement angle once `SECURITY DEFINER` is on the table). Skipping it here.
+
+---
+
+## Admin views — the brainstorm
+
+**Does the clinic-switcher idea reintroduce the "trust the frontend" problem?** No — and the reason why is worth understanding precisely, because it's a genuinely different situation from the receptionist gap we logged.
+
+Today, `profiles.clinic_id` is `NULL` for every admin by design, and the RLS model (`owner_id = auth.uid() and role = 'admin'`) grants an admin the *entire chain*, unconditionally, with no clinic filter at the database layer. So "admin picks a clinic to view" isn't a backend access-control question at all — it's a **frontend display filter**, layered on top of access the admin already, always has.
+
+That distinction is the whole answer. For a receptionist, trusting the frontend's submitted `clinic_id` is a real problem, because it's standing in for an actual security boundary — get it wrong (bug, tampering, a client that bypasses the UI entirely) and someone sees or writes data they were never supposed to touch. For an admin's clinic-picker, even in the worst case — the selected value is dropped, corrupted, or spoofed — the admin isn't gaining access they didn't already have. RLS already grants everything in the chain regardless of what that picker says. If the filter breaks, the failure mode is "admin sees all three clinics instead of just the one they meant to" — a UX hiccup, not a data breach. **Trusting frontend input is dangerous when it's substituting for a security boundary; it's harmless when it's a narrowing convenience layered on top of a boundary that's already correctly enforced underneath.** That's the generalizable version of what makes these two cases different, and it's worth being able to say exactly that in an interview if this ever comes up.
+
+**How to actually build it.** Backend: nothing changes. Admins already see the full chain via the existing policy. Whatever query the switcher UI fires just adds `and clinic_id = '<selected-uuid>'` on top of a query the admin was already allowed to run — no new trigger, no new RLS policy, no schema change. Frontend: the selected clinic lives as ordinary client-side state — a React context wrapping the admin dashboard is the natural fit, given your stack currently leans on `useState`/`useReducer` with TanStack Query coming for server state. Every clinic-scoped query the admin UI fires reads that context value as an optional filter parameter. Bonus: this naturally supports an "All Clinics" option for free — that's just "don't add the extra `WHERE` clause" — no special-casing needed anywhere.
+
+**What would an admin actually want at the chain level, not the clinic level?**
+
+- **Cross-clinic patient lookup.** "Has this patient been seen anywhere in my chain, and where." Fully supported today: `select clinic_id, first_visit_date from patient_clinic_access where patient_id = X`, joined to `clinics.name`. This is something a Clinic 1 receptionist structurally *can't* see (no way to know a patient also attends Clinic 3) but an admin naturally can — arguably the single clearest justification for chain-level access existing at all.
+
+- **Revenue rollup across clinics**, aggregate and per-clinic side by side — a straightforward `group by clinic_id` over `invoices` or `daily_ledger`. One honest gap here: the docs I have only draft the admin RLS policy for `patients`; there's no equivalent drafted yet for `invoices` or `visits`. Worth remembering this is genuinely undesigned territory, not something already quietly solved.
+
+- **Clinician performance across branches** — "who saw the most patients this week, chain-wide" — `group by clinician_id`, joined to `profiles` for display names. This is a direct callback to the multi-FK-to-`profiles` material from M2-04 — exactly the kind of query that needs a clean, deliberately-aliased join, not an accident of "there's only one `profiles` join so I don't need to think about it."
+
+- **Chain-wide invoice list, with a real UX wrinkle worth knowing now.** Since `unique(clinic_id, invoice_number)` is scoped per clinic, not globally, an admin's "all invoices" view will legitimately show `INV-2026-0012` at *both* Clinic A and Clinic B — different real invoices, identical number string. Any chain-level invoice list needs to display the clinic name alongside `invoice_number` to disambiguate, or fall back to the real `id` where a truly unique label is needed. Direct, concrete consequence of a decision already made and logged — not new work, just something to remember when that screen gets built.
+
+- **Package oversight across branches** — active packages, expiring soon, chain-wide — same aggregate shape as the revenue rollup.
+
+- **A point actually *in favor* of `patient_alerts`, to balance the skepticism from M2-03.** If it survives that audit, a structured `type` column is exactly what makes a chain-wide safety query trivial — `where type = 'DNR'` across every branch in one shot. Try to do the same thing against `clinical_notes.observation` (free text) and you're mining unstructured strings for a safety-critical flag, which is a real usability regression if this is the kind of thing an admin might genuinely want to scan chain-wide. Doesn't settle the earlier question — still needs the real frontend-usage check — but it's a legitimate use case in the "keep it" column, worth weighing fairly rather than assuming the table's dead weight.
 
 # [6 Aug 2026 - Depth Pass - II]
 <!-- TODO: Yet to read -->
