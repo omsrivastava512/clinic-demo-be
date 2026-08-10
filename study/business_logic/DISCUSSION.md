@@ -34,3 +34,48 @@ On your own instinct — "map each number to its table, don't maintain a separat
 
 **Which module gets you here on your own:** you've basically got the shape-reasoning already — that's M1 plus M2, which is exactly why a small table beats a pile of columns, and you're mid-M2 right now. What you don't have yet is the *who's allowed to touch this* side — should a receptionist ever be able to write to a pricing table, how does an admin-only override actually get enforced rather than just assumed — and that's M5 (RLS) and M6 (SECURITY DEFINER). None of that should stop this conversation now; if anything it's a preview that'll make M5/M6 land harder when you get there. By the end of M6 you'd be able to evaluate something like `clinic_tier_rates` end to end, security included, without taking my word for it.
 
+# [10 Aug 2026]
+
+Let me slow this down and walk through each piece with actual examples — the compressed version wasn't doing its job, that's on me to fix.
+
+**What clinics.config actually is, and why it's not your machine-vs-session switch**
+
+Picture `clinics.config` as a small settings drawer sitting on each clinic's row, holding on/off switches for whole app features — not billing rules. The two things stored in it today, `inventoryEnabled` and `appointmentsEnabled`, are literally just "does this branch even show the inventory-tracking screen" and "does this branch even show an appointments calendar." Flip either to false and that section of the app just doesn't render there. Nothing about how a bill gets calculated lives in it.
+
+The machine-vs-doctor-directed choice lives somewhere completely different, and here's the correction you asked for: **it isn't clinic-based today.** It's a column called `visit_type` sitting directly on the `visits` table — decided fresh, individually, on every single visit, every time one gets logged.
+
+Picture it this way: a patient — call her Priya — comes in Monday with knee pain, logged as `visit_type = MACHINE_ONLY`, itemized machine by machine. She comes back Thursday, and this time the doctor just examines her and runs a session himself — that visit gets `visit_type = CONSULTATION`, billed under the flat doctor-directed model instead. Same patient, same clinic, four days apart, two different billing treatments, and nothing in the schema objects, because `visit_type` was never attached to the clinic or even to the patient — it only ever describes the one visit row it sits on.
+
+**So the blast-radius question — what changes if a patient needs to mix both models?**
+
+Nothing. It's already zero, because the flexibility you're worried about not having is already there — nobody built it on purpose for this reason, it's a side effect of where that column happens to sit. If `visit_type` had instead been a checkbox living in `clinics.config` — a very reasonable guess, honestly, I might've expected it there too before checking — then yes, "what if one patient wants both" would have been a real structural problem. It didn't get built that way, so there's nothing to move.
+
+One distinction worth keeping straight, since it's easy to blur: the CHOICE of which model applies to a visit floats freely (any visit, any model, any time), but the PRICE of each machine still varies by clinic, through `clinic_service_prices` — and that's correct, that part shouldn't change. A `MACHINE_ONLY` visit at Branch A prices its machines off Branch A's list; the same choice at Branch B uses Branch B's list. Two different things, varying along two different axes, neither one constraining the other.
+
+**The 10-day gap, multiple complaints — additive penalty vs. a separate third price**
+
+Your instinct — normal follow-up price, with a flat 350 penalty tacked on, rather than a whole separate pricing tier — is right, and here's the concrete reason why, side by side with the alternative.
+
+Build it as a separate branch, and you need a specific formula for exactly "one complaint reactivating after a gap." Then a different formula for two complaints reactivating. A third if some new combination shows up later that nobody's thought of yet. Every new case needs its own hand-written rule, sharing nothing with the rules you already have.
+
+Build it as an additive penalty instead, and the whole engine only ever needs two rules, the same two for every visit regardless of kind: (1) if this is the first billing touchpoint back after a gap — or the first visit ever, or the first visit of a brand-new complaint — add a flat 350, once, not once per complaint. (2) For every active complaint actually getting therapy that day, add that complaint's per-complaint rate. Run that on your own two-complaint example: rule 1 fires once, contributing 350; rule 2 fires twice, once per complaint, 200 apiece. Total 750 — and you didn't need a new rule to get there. The same two rules that already handle a normal two-complaint first visit handle this one too, just with rule 1's trigger being "gap lapsed" instead of "brand new complaint." That's the real argument for additive over branching: every future case falls out of the same two rules automatically.
+
+**The waiver approval flow — three shapes, and why request-and-approve is the easiest to actually build**
+
+Scrap-and-redo: bad for the reason you already sense — throws away everything the receptionist typed, and only works if the admin happens to be standing right there.
+
+The password-prompt version, like Windows asking for an administrator's password to open a folder: this one feels familiar, which is exactly why it's tempting, but it's the harder one to build safely here. On your own computer, typing your password unlocks something locally, checked by your own machine — nothing about who's "logged in" anywhere else changes. In a web app, the receptionist's browser tab is already a live session tied to their account. Typing the admin's password into that same tab either quietly logs the admin in and replaces the receptionist's session entirely — which is just scrap-and-redo wearing a nicer popup — or it needs a genuinely separate "verify this password without switching who's logged in" mechanism built from scratch, which Supabase doesn't hand you for free.
+
+Request-and-approve: receptionist finishes the visit as normal, full price, with a checkbox that just says "waiver requested." The visit sits exactly as submitted. Whenever the admin next looks — their own device, their own login, no shared session, no typed-in password — they see the one pending request and approve or deny it, and that's the only thing that changes the charged amount. This is the one I'd build. Not just because it's safer — it's actually the least new work, because "only someone with `role = admin` can do this one thing" is a rule this schema already writes over and over (it's exactly what governs who can be set as a clinic's or patient's `owner_id`) — you're reusing a check that already exists, not inventing a new kind of permission. And since the doctor here is the admin, and he's usually right there anyway, "asynchronous" in practice probably just means a few seconds, not a real wait.
+
+**Should the exam fee be tier-aware now, even while both tiers charge 350?**
+
+Yes — and the reason this one's genuinely free, not just future-proofing for its own sake, is what it rides on top of. Picture the tier-rate table as a tiny two-row spreadsheet for one clinic — one row for Regular, one for Rehab — with a couple of columns already filled in for the numbers you've confirmed vary by tier: daily rate, package rate. Adding one more column, "exam fee," costs nothing structurally — you're filling in one more cell per row you already have, not building a new spreadsheet. Today you'd type 350 into both. If the day comes where rehab gets a different exam fee, you change one cell — no migration, nothing rebuilt.
+
+Compare that to leaving the exam fee as its own column on `clinics`, the way `consultation_fee_first_in_paise` sits today. If tier-dependence ever gets requested for real from there, that's an actual migration — new column, move the data, update every place that reads the old one. Same eventual outcome, real work to get there instead of one edited cell. So: same table as daily/package rate, both tiers at 350 for now.
+
+I've folded the gap-return resolution, the waiver approach, and the exam-fee decision into the log — nothing to look at now, just there whenever you're back to it.
+
+# [11 Aug 2026]
+
+...
