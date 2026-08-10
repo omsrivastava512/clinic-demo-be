@@ -24,6 +24,16 @@ resolution happens later, deliberately, not by writing it down.
   on a write and the trigger layer will validate it against the *patient's*
   access, never against the *submitting staff member's* own clinic.
 
+- None of the denormalized display-name snapshot columns (`complaint_courses.
+  complaint_name`, `visit_services.service_name`, `packages.linked_complaint_
+  name`) are derived or validated against their paired FK by any trigger.
+  Each is trusted verbatim from client input, same as any other plain text
+  column — nothing checks that `complaint_name` actually matches what
+  `complaint_catalog_id` points to, etc. A row can have a structurally valid
+  FK and a completely wrong display name at the same time, with zero error.
+  Frontend is fully responsible for keeping these in sync at write time;
+  nothing on the backend will ever catch drift.
+
 ---
 
 ## OPEN QUESTIONS (unconfirmed — need real frontend code, not just schema docs)
@@ -41,6 +51,18 @@ resolution happens later, deliberately, not by writing it down.
   deliberate future scope (much of the frontend is still mockup). Needs an
   eventual table-by-table audit against real usage, not an assumption either
   way in the meantime.
+
+- Whether the visit→invoice write happens as one coordinated backend action
+  (complaint_course if new → visit → visit_services → invoice, all fired
+  together at a single "submit" point) or as several progressive writes
+  across the UI flow is not confirmed against real frontend/API code —
+  codebase-context.md describes the app as still running on local mock data,
+  with real Supabase integration described as "upcoming." Strongest available
+  signal (the "final invoice payload" assembled before one submit; the MVP
+  "row existing = complete + paid" philosophy on visits/invoices) points
+  toward one coordinated write at the end, not progressive writes. Confirm
+  directly once real integration code exists — check `VisitWorkflow`,
+  `ProcedureLogger/index.tsx`, and whatever submit handler wires them up.
 
 ---
 
