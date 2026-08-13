@@ -76,6 +76,46 @@ Compare that to leaving the exam fee as its own column on `clinics`, the way `co
 
 I've folded the gap-return resolution, the waiver approach, and the exam-fee decision into the log — nothing to look at now, just there whenever you're back to it.
 
-# [11 Aug 2026]
+# [13 Aug 2026]
+
+**The core principle, before anything else — where should the number come from?**
+
+The backend should compute it, every time, from its own rate tables, regardless of what the request contains. You already have a working example of exactly this pattern: `derive_clinic_id_from_patient()` silently overwrites whatever `clinic_id` a client sends with the value it derives itself from the parent patient. Right now that same discipline doesn't extend to the actual fee columns — `consultation_fee_in_paise` and `services_total_in_paise` are plain columns, trusted from whatever gets inserted. `grand_total_in_paise` can't be tampered with, since it's generated from those two — but the two things it sums are currently wide open. That's the real gap your question is pointing at, and it's fixable with the same kind of trigger you already have, just aimed at a new column.
+
+**Quick correction first — I had the ₹150 penalty wrong**
+
+I was treating the gap-return fee as a bundled 350, same shape as the true first-time exam fee. That's not what you said. The actual shape: every complaint being treated still gets its normal 200 (or 300) rate, no exceptions, and a separate, flat, one-time ₹150 penalty gets added on top, once per visit, regardless of complaint count. One complaint: 200+150=350. Two complaints: 200+200+150=550 — your number. The additive-over-branching argument still holds, it's just three rules instead of two now: (1) always add the per-complaint rate for every complaint treated, (2) if true first-timer, add 350 once, (3) if gap-return instead, add 150 once. 2 and 3 never both fire, neither depends on complaint count, and the same three rules cover every combination that comes up. Fixed in the log.
+
+**Three kinds of "not the computed price," one mechanism**
+
+The shape I'd build: alongside the normal rate columns, add `computed_amount_in_paise` (backend fills this in itself, always), `actual_amount_in_paise` (what really got charged — usually identical), `override_reason`, `override_by`. A rule enforces that actual can only differ from computed when `override_by` points to a profile with `role = 'admin'` — the exact check `validate_owner_is_admin()` already does elsewhere, reused rather than reinvented.
+
+Ordinary visit: computed=550, actual=550, reason and override_by empty, nothing to explain. The 150 penalty waived for a loyal patient: computed=550 (the system still always calculates what the rule says), actual=400, reason="lapse penalty waived, loyal patient", override_by=the admin. Your ₹180-forever regular: same four columns, just applied every visit instead of once — computed=whatever the rate tables currently say, actual=180-equivalent, reason="standing rate, longtime patient" — worth living as a note on the patient record itself so it applies automatically rather than needing to be retyped for years. The Mother's Day free consultation: I'd genuinely treat this as the same one-off override, applied by hand to each qualifying visit that day — a real "promotions" concept with date ranges and eligibility rules is real complexity, and this has happened once so far. Build that later if it becomes a pattern, not now.
+
+To your direct question — is a random number like 0 or 350 or 600 secure — no, not on its own, regardless of which number it is. It becomes secure the moment any deviation from the computed number *requires* a valid admin `override_by` to exist at all. The number was never the risk.
+
+**How `override_by` actually gets proven — I checked this properly rather than guessing**
+
+A shared code word: weakest option. It's just another field in a request — anyone who learns it can trigger it straight from dev tools, no admin involved, and there's no way to tell which admin approved anything.
+
+Live TOTP, Google-Authenticator-style, verifying one specific admin without switching sessions: more possible than I expected before checking — Supabase's admin-level tooling includes a way to verify a specific user's MFA factor from the backend, separate from that user's own active session, meaning a small server-side function could take "admin X, code 123456" and check it directly against admin X's enrolled authenticator, without the receptionist's browser session ever being touched. Real, buildable, gives you the instant experience you're picturing. The cost: it needs actual code running outside the database — a small deployed function holding a credential that must never reach the browser — the first piece of this project that wouldn't live entirely in SQL. A genuine step up in scope from everything else so far.
+
+Request-and-approve, no live verification of anyone's identity at all: receptionist flags "waiver requested" with a reason at the computed price; the admin, from their own separate login, later updates that exact row — allowed purely because their own profile says `role = admin`. Nobody ever authenticates as anyone else, in anyone else's session.
+
+My actual call: request-and-approve for now, not because TOTP doesn't work, but because it costs nothing beyond columns and an RLS rule you're building anyway, while TOTP is a real, new category of work — worth reaching for specifically once instant approval turns out to matter enough to justify it, not before.
+
+**Where would that pending-request data actually sit?**
+
+No separate table. The same four columns above, plus `override_status` ('none' / 'pending' / 'approved'), living directly on the row that needs the price — the visit itself, most naturally. Receptionist requests it: one INSERT, actual=computed, status='pending', reason filled, override_by empty. Admin approves later: one UPDATE to that same row — actual changes, status flips to 'approved', override_by becomes their own id, allowed only because of their role. Admin doing it live, on the spot: identical columns, just one INSERT instead of two, status going straight to 'approved'. One mechanism, both situations.
+
+**The smaller items**
+
+Button name: "Cancel Package" — matches what the owner already calls it, and it's more accurate than "Refund" alone since the refund is a consequence of cancelling, not the whole action.
+
+Reassigning leftover package days to a different complaint: your instinct is right. Cancel the original honestly at ₹0 refunded — the money didn't leave, it moved, which is a real, different thing from either "nothing happened" or an actual cash refund. For the reallocated days, I'd lean toward the fuller version — a real new complaint course, real visits, charges waived through the mechanism above — over doing it off the record, specifically because this is exactly the kind of patient the flag feature exists for, and a flag next to an actual visible pattern in the history is worth a lot more to future staff than a flag with only a text note. Given how rare you're saying this is, though, no dedicated button or guided flow for it — just ordinary manual admin steps when it comes up.
+
+Visit-type default plus lock: build the default (a `clinics.default_visit_type` that just pre-fills the form — cheap, no enforcement needed). Skip the lock — you talked yourself into the right answer there. It needs real enforcement across schema, RLS, and frontend for a complaint no clinic has actually raised. Add it later, as one ordinary RLS policy, if a clinic ever does ask.
+
+[13 Aug 2026]
 
 ...
