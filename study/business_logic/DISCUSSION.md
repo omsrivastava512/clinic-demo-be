@@ -118,4 +118,44 @@ Visit-type default plus lock: build the default (a `clinics.default_visit_type` 
 
 [13 Aug 2026]
 
-...
+You're right, and it's worse than a typo — let me sort this out properly.
+
+**`derive_clinic_id_from_patient()` doesn't exist.** I was wrong to cite it as something already running. Two things went wrong at once: I mixed it up with a real function that does exist (`derive_owner_id_from_patient()`), and even setting that mix-up aside, the function I described couldn't work under your current schema anyway — it would need to look up a `clinic_id` on `patients`, and `patients` doesn't have a `clinic_id` column. It never should, either: your own reasoning is exactly right. Patients belong to a chain (`owner_id`), not a single branch, and which branches they've actually attended lives in `patient_clinic_access`. A patient can be seen at three different clinics in your chain — there's no single "the" clinic to derive.
+
+Here's the part worth sitting with for a second: this isn't hypothetical. A function named exactly `derive_clinic_id_from_patient()` genuinely existed in your schema's history — briefly, in v3 — and the moment `patients.clinic_id` got removed in v4, it broke (your own iteration doc calls it out directly: "gutted to a no-op"). It was never repaired, it was replaced by different, purpose-built functions in v5. So the mistake I made — treating dead code as if it were live and load-bearing — is almost exactly the failure your project already survived once for real. I should have cross-checked against the actual file instead of pattern-matching on a name I half-remembered.
+
+The real precedent, the one I should have used: `derive_owner_id_from_patient()`. It's live today, running on `patient_alerts`, `patient_vitals`, `clinical_notes`, and `timeline_events` — it silently overwrites whatever `owner_id` a client sends with the value it derives fresh from the parent patient, every single time. The underlying architectural point — fee amounts should be backend-computed, not trusted from the client — doesn't depend on which function I cite, and it still holds. I've fixed the citation in the log.
+
+**You're also right that I described the override design as if it already enforces something.** None of it exists. I've gone through and tightened the language so it reads as a proposal throughout, not current behavior.
+
+**The flag feature — I dropped this entirely, here's what I owe you.**
+
+Dedicated `patient_flags` table, not folded into `patient_alerts`. Reasoning: different audience and different sensitivity. `patient_alerts` is clinical safety information a clinician scans mid-treatment — allergy, fall risk, DNR. A red-zone flag is an administrative caution for whoever handles scheduling and money, not medical information, and mixing the two either buries real medical alerts among behavioral notes, or exposes a sensitive judgment call about someone's conduct to everyone with any reason to check clinical alerts. `patient_alerts` also has no `created_by` column at all right now, while a flag specifically needs accountability for who made the call.
+
+Shape: `patient_id`, `owner_id` (same derivation pattern as alerts/vitals/notes/timeline — a difficult patient is difficult chain-wide, not one branch), `flagged_by`, `reason` (full text, not a short label), `created_at`. Nothing extra needed for display — a patient with any row here gets a marker wherever their profile renders, and a "red zone" list is just a query for patients with at least one row.
+
+One thing genuinely open, not for me to guess at: should flagging be admin-only, like Hold/Cancel, or can any staff member do it? Front-desk staff are the ones who actually hit the friction this feature exists for — but it's also a weighty, permanent, visible judgment about a specific person. Your call.
+
+**The refund preview — who computes it when the admin clicks Cancel.** Should come from the exact same calculation the backend uses when the cancellation is actually finalized, not a second copy of the math sitting only in the frontend. Concretely: clicking "Cancel Package" calls a small backend function — days attended in, refund out, the confirmed regular-rate formula — purely to preview, writing nothing. Confirming calls that identical function for real. Same code path both times, so the preview number and the real number can't quietly drift apart from each other later if the formula ever changes.
+
+**The speed worry — this is legitimate, and none of this needs to touch the fast path.** A receptionist doing an ordinary visit — no waiver, nothing unusual — never sees an override field or a reason box; the form is exactly as fast as it is today, because the override status just sits at its default, doing nothing. Extra fields only ever show up when someone specifically requests a waiver, as a small secondary action next to the total — not a permanent addition to the form everyone fills in every time.
+
+**What if the admin genuinely can't do it on the spot, and requests pile up?** Worth being honest that this is a real tradeoff, not a solved problem — but it's less disruptive than it sounds, because a pending request never blocks anything. While it's pending, the visit is still billed at the full computed amount — a complete, valid, closed transaction on its own. The waiver, whenever it eventually gets approved, just retroactively adjusts a transaction that was already fine. Ordinary business practice (revise an invoice after the fact), not a broken state.
+
+**Exactly where does this live — table by table, not abstract.**
+
+On `visits`: leave `consultation_fee_in_paise`, `services_total_in_paise`, `grand_total_in_paise` exactly as they are — grand_total keeps doing its current job, generated, untouched. Add four columns: `final_amount_in_paise` (nullable — null means nothing overridden, real charge is grand_total as normal), `override_reason`, `override_by` (references `profiles(id)`), `override_status` (`'none'/'pending'/'approved'`, default `'none'`). What actually gets billed = `COALESCE(final_amount_in_paise, grand_total_in_paise)`.
+
+On `packages`: needs more, because there's nowhere to represent a cancellation at all right now — `status` only allows `'Active'/'Completed'/'Expired'`, no `'Cancelled'`. That needs adding first. Then the same shape: `computed_refund_in_paise`, `final_refund_in_paise`, `override_reason`, `override_by`, `override_status`.
+
+**Loyalty pricing, properly this time — it's not a rule, it's a discretionary grant, and that changes the shape.**
+
+Since it's the doctor deciding, case by case, for one specific person — not something that applies automatically to anyone with enough history — that points to a real table, not a note on the patient record, because a grant like this has its own facts worth keeping: who authorized it, when, why, whether it ever ends.
+
+`patient_rate_overrides`: `patient_id`, `override_amount_in_paise` (their flat rate — your ₹180), `reason` (free text — "longtime patient," "financial hardship," whatever it actually was), `granted_by`, `granted_at`, `expires_at` (nullable — blank for indefinite, a date for something meant to lapse), `is_active` (so it can be turned off later without erasing that it ever existed).
+
+Whatever computes a visit's baseline price checks this table first, before falling back to the normal tier rates. Set once, then automatic — every visit after that, zero extra clicks, nobody retyping 180 for years. Your affordability example is the identical mechanism, just a different reason, not a second system.
+
+Time-bound or not — I'd leave it optional rather than pick one, since you've described both kinds: an indefinite "you're basically family" arrangement, and a bounded "let's do this while things are tight" one. A blank `expires_at` covers the first, a date covers the second.
+
+Visibility without crowding the workflow: something small and passive — a quiet marker next to the patient's name at selection time, so staff aren't surprised by a lower total, nothing that adds a click or a decision to the normal flow. Frontend detail more than a schema one, but worth having in some form.
