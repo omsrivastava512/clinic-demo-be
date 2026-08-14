@@ -1,4 +1,4 @@
-# [6 Aug 2026 - Module 2 conceptual pass - I]
+# [6 Aug 2026] - Conceptual Pass - I
 
 ## Foreign Keys: what `references` actually enforces
 
@@ -55,7 +55,7 @@ Three separate foreign keys, three separate relationships:
 
 That's the exact mechanic your Module 2 exercise (already sitting in the handover) walks you through hands-on tomorrow: insert a `visits` row for a branch the patient has no access to → watch it get rejected → insert a `complaint_courses` row first → watch `patient_clinic_access` auto-populate → retry the visit → watch it succeed. Reading this tonight, running it tomorrow, should click into place fast since you'll be watching the FK layer and the trigger layer act as two separate checks in real time.
 
-# [6 Aug 2026 - Module 2 conceptual pass - I - Follow up]
+# [6 Aug 2026 - Conceptual Pass - II - Follow-up]
 
 ## 1. Does `owner_id` get set by a trigger, since it's not in your registration form?
 
@@ -154,7 +154,7 @@ The only way P becomes valid at Clinic 2 is if someone *at Clinic 2* opens a com
 
 So the direct answer: **chain membership is necessary but not sufficient.** `owner_id` matching is what stops a patient from a totally different chain being seen at all — that's the hard wall. But *within* the same chain, per-branch visibility is governed entirely by attendance history — whether a `patient_clinic_access` row exists for that exact `(patient, clinic)` pair — and that row only gets created the first time staff *at that specific branch* actually open a complaint course for that patient. It's modeling something true in the real world: three branches can share an owner, but that doesn't mean Branch 3's front desk has ever laid eyes on this person, and they shouldn't see the record until they have.
 
-# [6 Aug 2026 - Module 2 conceptual pass - I - Follow up - II]
+# [6 Aug 2026] - Conceptual Pass - III - Follow-up
 
 ## Soft delete — confirmed, you've got it right
 
@@ -254,7 +254,7 @@ Your two scenarios, quickly separated, because they're actually different questi
 
 I'm not resolving this now — it's a real design decision worth sitting with with fresh eyes, probably around when you get to Module 5/6's RLS and SECURITY DEFINER material. Logging it as open.
 
-# [8 Aug 2026] - Module 2 Conceptual Pass - I - Follow up - III
+# [8 Aug 2026] - Conceptual Pass - IV - Follow-up
 
 ## M2-05 — Invoice Trigger Redone, Full Visit Workflow, Security Definer Scope, Admin Views
 
@@ -406,10 +406,118 @@ That distinction is the whole answer. For a receptionist, trusting the frontend'
 
 - **A point actually *in favor* of `patient_alerts`, to balance the skepticism from M2-03.** If it survives that audit, a structured `type` column is exactly what makes a chain-wide safety query trivial — `where type = 'DNR'` across every branch in one shot. Try to do the same thing against `clinical_notes.observation` (free text) and you're mining unstructured strings for a safety-critical flag, which is a real usability regression if this is the kind of thing an admin might genuinely want to scan chain-wide. Doesn't settle the earlier question — still needs the real frontend-usage check — but it's a legitimate use case in the "keep it" column, worth weighing fairly rather than assuming the table's dead weight.
 
-# [6 Aug 2026 - Depth Pass - II]
-<!-- TODO: Yet to read -->
+# [14 Aug 2026] - Conceptual Pass - V 
 
-Yeah, there's real depth left in Module 2 that I skipped over to keep the first pass digestible. Here's the rest, no Module 3 content mixed in.
+## M2-06 — Naming Convention, Invoice Trigger Confirmed, Multi-Complaint Pre-fill Design
+
+## 1. Project-wide naming convention
+
+Here's a self-contained block for the project's custom instructions. Paste this in as-is:
+
+```
+RESPONSE NAMING CONVENTION
+
+At the start of every response, before any other content, add a level-2 header:
+## {ChatID}-{NN} — {3-8 word title describing this response's content}
+
+ChatID: a short prefix identifying what this chat is about, chosen once, at the
+first response in a new chat, then held constant for the rest of that chat.
+- If the chat is clearly a continuation of the module study plan
+  (schema-study-plan-v2.md, Modules 1-10), use M{module number} — e.g. M2, M5.
+- Otherwise, pick a short (1-2 word) slug reflecting the chat's actual topic
+  (e.g. JOBSEARCH, RESUME, SEEDDATA) at the first response, and don't change
+  it for the rest of the chat.
+
+NN: a 2-digit sequential number, starting at 01, incrementing by one on every
+Claude response in this chat (not user messages). Never reused within a chat.
+
+Example: ## M2-07 — RLS staff policy walkthrough
+
+This applies to every response in this project, without exception, including
+short ones. The person may refer back to any past response by its ID (e.g.
+"in M2-04 you said...") — treat that as an unambiguous pointer to that exact
+response's content within the current chat's history.
+```
+
+Applying it starting now — this response is M2-06.
+
+## 2. Confirming the invoice trigger, and what `NEW` actually is
+
+Your sequence is correct, in full: INSERT attempted on `invoices` → halted before it writes → `process_new_invoice()` runs → inside it, `clinics.invoice_counter` gets incremented → the incremented value comes back into `next_num` → `next_num` gets formatted and used to fill `invoice_number`. All correct. (One tiny slip in your wording — you said "before the invoice is updated," but this whole thing is an INSERT, not an update. Just a verbal slip, not a real confusion, since everything else in your message is clearly about insertion.)
+
+Quick flag before I answer the `NEW` part properly: what `NEW` and `OLD` formally mean is Module 4's actual anchor topic ("what a plpgsql function is, what `before insert or update` triggers do, what `NEW` and `OLD` mean inside one"). I've been using `NEW` loosely in explanations for a few responses now without ever nailing it down precisely, which is part of why this got confusing. Since you're asking a direct question that's blocking your understanding of something already in play, I'll answer it properly now — Module 4 will still have plenty of its own ground to cover (general trigger-writing, `OLD`, more worked examples), nothing here makes that redundant.
+
+Here's the precise mechanic, and your instinct is basically right on both counts — "on hold" and "backdoor" are both accurate, informal names for something real:
+
+When `INSERT INTO invoices (clinic_id, patient_id, amount_in_paise, date, visit_id) VALUES (...)` runs, Postgres does **not** immediately write anything to disk. First, it builds an in-memory candidate row — this candidate is exactly what `NEW` refers to. Columns you explicitly gave values for get those values. Columns with a `DEFAULT` clause get their default evaluated right then (`id` gets a fresh UUID, `created_at` gets `now()`). Columns with **neither** an explicit value **nor** a default — and `invoice_number` is exactly this, `text not null` with no default — get set to `NULL` in this candidate row, temporarily.
+
+At this exact moment, if Postgres checked constraints, this candidate row would already be failing `NOT NULL` on `invoice_number`. But it doesn't check yet. Instead: any `BEFORE INSERT` triggers run first, each one receiving this candidate `NEW` row and being allowed to reach in and change any field on it, then handing back a (possibly modified) `NEW`. This is precisely where `process_new_invoice()` does `new.invoice_number := 'INV-2026-0043'` — filling in exactly the field that would otherwise have stayed `NULL`. Only **after** every `BEFORE INSERT` trigger has finished does Postgres actually check `NOT NULL`/`CHECK`/`UNIQUE` constraints — against the final, trigger-modified version of `NEW`, not the original candidate. Only if that passes does the row actually get written.
+
+So yes: the insert genuinely was on hold, in a real, precise sense — nothing was validated or committed yet, `NEW` was a mutable, in-progress candidate, and the trigger's whole job was to edit fields on it before Postgres moved on to checking and writing. And "backdoor" is fair too — the client's original INSERT statement never mentioned `invoice_number` at all, has no way to, and even if it tried, the trigger overwrites it unconditionally anyway. The value arrives through a channel completely outside the original column list the client sent.
+
+## 3. Multi-complaint sessions and the "last used" pre-fill — this needed a real fix
+
+The screenshots confirm something I'd flagged as a maybe in M2-05, not a maybe anymore. Image 1's header literally says "SELECT VISIT COMPLAINTS (MULTIPLE ALLOWED)," and shows two of three active complaint courses checked. Image 2's "CURRENT SESSION BILL" groups charges under three separate complaints, feeding one combined total and one "Create Invoice" button. This is exactly, visually, the scenario you described — and it's exactly the concrete shape of the invoice/session Option A/B/C decision already sitting in your notes. `visits.complaint_course_id` is singular, so a session covering complaints A and C isn't one `visits` row — it's two, one per complaint, both dated today, feeding this one on-screen bill. These screenshots *are* what makes that decision unavoidable rather than theoretical.
+
+Now the actual problem you identified, stated precisely: my earlier pre-fill query (M2-05) — "get the patient's most recent visit, get its services" — breaks the moment a session can span multiple complaints, because there isn't one "most recent visit" anymore. On a day complaint A and C were both treated, there are two most-recent visits, dated identically, and picking one arbitrarily silently discards the other. You're right that this needed to be caught, not shipped.
+
+**The fix — and it's simpler than "one request per complaint," not more complicated:** the mistake in the original query wasn't the *mechanism*, it was the *scope*. Instead of "most recent visit for this patient," scope the lookup to one specific `complaint_course_id` at a time, independently, for each complaint currently checked in today's session:
+
+```sql
+select distinct on (complaint_course_id) complaint_course_id, id as visit_id, date
+from visits
+where complaint_course_id in ('<A_id>', '<C_id>')
+order by complaint_course_id, date desc, created_at desc;
+```
+
+Postgres's `DISTINCT ON` does exactly what you need here: one row per group (per `complaint_course_id`), the latest by `date`/`created_at` within each group, in a single query — regardless of whether you pass in 2 complaint IDs or 20. Follow it with one more query for those visits' services:
+
+```sql
+select visit_id, service_id from visit_services
+where visit_id in (/* the visit_ids from above */);
+```
+
+Two queries total, not N. This directly beats your working assumption of "roughly one request per complaint" — it stays flat at two regardless of how many complaints get selected on a given day. And crucially: this query never touches `invoices` at all — it only reads `visits` and `visit_services` directly. Since it's scoped by `complaint_course_id`, it's automatically correct regardless of whether "the last time complaint A was treated" happened to be a single-complaint day or a three-complaint day — it doesn't care what else was going on that day, only what happened under that specific complaint course.
+
+**On your explicit rejection of doing this on the frontend** — that's the right instinct, and this query already satisfies it. Doing this correctly in JavaScript would mean pulling a patient's entire visit history to the browser and filtering/grouping it client-side — more data exposed than needed, logic duplicated in every future frontend surface that needs the same answer, and no guarantee two different clients compute it the same way. The `DISTINCT ON` approach computes it once, correctly, in the database — every consumer gets the same answer for free.
+
+**Does the Option A/B/C invoice decision affect any of this?** No — and I want to give you a confident answer here, not a hedge, because I traced through it carefully. A/B/C is entirely about how `invoices` relates to `visits` going forward — one invoice per visit, a real `invoice_visits` junction, or no persisted linking at all. None of those three options touch the *shape* of `visits` or `visit_services` — `visits.complaint_course_id` stays singular under every one of them, because that's a fixed fact about the `visits` table itself, independent of how invoicing gets structured on top of it. The pre-fill query above only ever reads `visits` and `visit_services`; it never reads or depends on `invoices` at all. So this is genuinely settled and independent — worth being confident distinguishing "two things are actually unrelated" from "everything's tangled together," since it's not always true, but it is here.
+
+One thing worth revising from M2-05, in light of the screenshots — I'd floated pre-*selecting* the complaint checkboxes themselves as part of the autofill idea. I don't think that actually holds up now that I can see the real screen: which complaints get treated on a given day looks like a genuine daily clinical call (today A+C, tomorrow A+B+C, no fixed pattern), not something with a stable "usually the same as last time" shape. I'd walk that part back — leave the complaint checkboxes unchecked by default, let the clinician actively choose each visit, maybe show light context next to each ("last treated: 3 days ago") without auto-checking anything. Where the autofill idea *does* hold up is one level down: once a complaint is checked, pre-fill *its own* typical procedures using the query above — that's the part that matches a real, stable pattern (a given complaint's treatment usually repeats), and it's exactly what the screenshots show room for.
+
+## 4. Clinic-wide default services — two separate ideas, only one needs a table
+
+Worth separating cleanly, since these are two different things and I want to avoid the exact kind of conflation that caused trouble last time:
+
+1. **Patient-specific "what did we do last time for this complaint"** — this is what section 3 just built. Zero new tables. Handles returning treatment for a complaint course that already has visit history.
+2. **Clinic-wide "what's the standard starting point for this type of complaint, when there's no history yet"** — this is the new idea you're floating now, and it's solving a genuinely different problem: a brand-new complaint course's very first visit, where section 3's lookup has nothing to return, because no prior visit exists yet under that complaint course.
+
+Directly to your question — **no, I don't think a patient-wise prescription table is needed**, and I agree with your own instinct there. But that's not quite the same question as whether the clinic-default idea needs *its own* table — it does, if you pursue it, just a smaller, more specific one than a general "prescription" concept would be:
+
+```sql
+create table clinic_default_services (
+  id uuid primary key default gen_random_uuid(),
+  clinic_id uuid not null references clinics(id),
+  complaint_catalog_id text not null references complaint_catalog(id),
+  service_id text not null references services(id),
+  created_at timestamptz not null default now(),
+  unique (clinic_id, complaint_catalog_id, service_id)
+);
+```
+
+`select service_id from clinic_default_services where clinic_id = X and complaint_catalog_id = Y` gives you the suggested starting bundle for a fresh complaint of that type.
+
+One real dependency worth flagging: this only works for complaints tied to a `complaint_catalog_id`. Free-text/custom complaints (which you already made nullable on `complaint_courses` on purpose) have nothing to key a default off of — they'd just get no suggestion at all, which seems fine, since a one-off custom complaint is less likely to have an obvious "standard" bundle anyway.
+
+**Clinic-wide, or clinic + clinician?** You said it yourself — "doctors usually have a default go-to," which is really a claim about *doctors*, not clinics as a whole. Dr. Sharma's usual picks for lower back pain and Dr. Gupta's might genuinely differ even at the same clinic. I'd flag this as a real open sub-question rather than deciding it for you: `clinic_default_services` as drafted is clinic-wide only; making it clinic-*and*-clinician would mean adding `clinician_id` to the key, at the cost of needing every doctor's defaults configured individually rather than one shared clinic default. Worth deciding deliberately once you have a better read on whether your actual clinicians' habits really diverge enough to matter.
+
+**My honest take, since you asked directly:** I think this is a good idea, not scope creep — unlike some speculative future features, this one has an everyday trigger condition built in (every new complaint course starts with zero history, by definition, so "no suggestion at all, pick from all 8 procedures cold" is a real, common, avoidable friction point) and it maps onto something concretely true about how physiotherapy works, not an invented abstraction. I'd correctly leave it deferred exactly as you said, for two reasons: it needs that clinic-vs-clinician call made deliberately, and it'd genuinely help to first watch how often "brand new complaint, no history" actually comes up once the per-complaint lookup from section 3 is live, before building a second fallback layer on top.
+
+**Combining both:** returning complaint → section 3's per-complaint lookup. Brand-new complaint → this clinic-default fallback, if you build it. Between those two, I don't see a gap that a third, heavier "prescription" concept (an explicit, doctor-authored, forward-looking treatment plan, reviewed over time — genuinely different and bigger than either of the above) would be filling. Nothing in what you've described sounds like you're after that heavier thing — it sounds like you're specifically trying to cut repetitive manual re-selection for the predictable cases, and the two ideas above cover that fully.
+
+
+# [6 Aug 2026 - Depth Pass - I]
+<!-- TODO: Yet to read -->
 
 ## Many-to-many relationships: why `patient_clinic_access` exists at all
 
