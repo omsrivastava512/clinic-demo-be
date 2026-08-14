@@ -1,5 +1,23 @@
 # Module 1 — Tables, Columns & Constraints
 
+## Table of Contents
+
+### Core Lessons (`README.md`)
+1. [Core Patient Table Breakdown & Constraint Basics](#2-august-2026) — `patients` schema, `NOT NULL`, defaults, inline/compound `CHECK` constraints, `unique(owner_id, mrn)`.
+2. [Deep Dive on Constraints, Enums, Roles & UUID Collision Safety](#2-august-2026-1) — `owner_id` chain identity, `blood_type` gap, `clinician_id` vs `created_by`, `gen_random_uuid()` math.
+3. [Retry Strategies, Failure Paths & Client-side Error Handling](#3-august-2026) — Network blips vs. constraint violations, error boundaries.
+4. [Invoice Batching Options & Multi-Complaint Session Design](#3-august-2026-1) — 3-option breakdown (Options A, B, C) for session billing.
+5. [Single-Clinician Scope & Attendance-Derived Access](#4-august-2026) — Procedure logger & intake form scope, `DISTINCT ON` clinician derivation.
+6. [SMTP Auth Limits & Triggers on `auth.users`](#4-august-2026-1) — Built-in Supabase sender limits, `handle_new_user()` trigger for `profiles`.
+7. [Supabase Org Permissions, `profiles` 1:1 Trigger & MRN Multi-Chain Scope](#5-august-2026) — Dashboard access vs. app roles, manual inserts vs. triggers.
+
+### Module 1 Folder Companion Documents
+- 🏛️ [**`DECISIONS.md`**](file:///c:/Github/clinic-demo-be/study/module_1/DECISIONS.md) — Architectural trade-offs, resolved features & open design choices (e.g. Options A/B/C).
+- ⚠️ [**`GAPS.md`**](file:///c:/Github/clinic-demo-be/study/module_1/GAPS.md) — Schema bugs, missing triggers, unindexed FKs & frontend mismatches.
+- 📋 [**`TODO.md`**](file:///c:/Github/clinic-demo-be/study/module_1/TODO.md) — Retroactive editing risk analysis, safety net recommendations & hands-on SQL exercise script.
+
+---
+
 # [2 August 2026]
 
 Here's `patients`, top to bottom, in plain terms:
