@@ -159,3 +159,49 @@ Whatever computes a visit's baseline price checks this table first, before falli
 Time-bound or not — I'd leave it optional rather than pick one, since you've described both kinds: an indefinite "you're basically family" arrangement, and a bounded "let's do this while things are tight" one. A blank `expires_at` covers the first, a date covers the second.
 
 Visibility without crowding the workflow: something small and passive — a quiet marker next to the patient's name at selection time, so staff aren't surprised by a lower total, nothing that adds a click or a decision to the normal flow. Frontend detail more than a schema one, but worth having in some form.
+
+# [14 Aug 2026]
+
+**1. Nullable `final_amount_in_paise`, or default it to equal `grand_total_in_paise`?**
+
+Let me actually compare them rather than just restate my answer.
+
+What you're proposing: not nullable, gets set at insert time to equal `grand_total_in_paise`, so every row always carries a concrete number that just happens to match the computed total unless someone changes it.
+
+Here's the concrete failure this creates. A visit logs Monday, `grand_total_in_paise` computes to 550, nobody overrides anything — under your version, `final_amount_in_paise` gets written as 550 at that moment too. Tuesday, someone catches a genuine data-entry mistake on that visit — wrong tier got selected — and corrects it. `grand_total_in_paise` recalculates itself automatically, since it's generated, now 650. But `final_amount_in_paise` does NOT follow along — it's frozen at 550, because nothing re-derives it on every future update. Now the row shows 550 and 650 disagreeing, for a reason that has nothing to do with a waiver — and any query trying to find "which visits were overridden" by checking `final_amount != grand_total` picks up this ordinary correction as a false positive, indistinguishable from a real waiver.
+
+Staying nullable avoids this entirely — `final_amount_in_paise` only ever has a value when something was genuinely overridden, so `COALESCE(final_amount_in_paise, grand_total_in_paise)` always reflects whatever `grand_total_in_paise` currently, actually is, automatically, with zero extra work to keep them in sync.
+
+I think your real worry is query convenience — not wanting to type `COALESCE` everywhere instead of reading one plain column. Fair, and there's a way to get that without the staleness risk: a small view (or a second generated column) exposing that same `COALESCE` expression as one column, something like `effective_charge_in_paise`. Worth adding once you're actually building this. Verdict stands: nullable — the staleness bug is the kind that fails silently and shows up months later as "why doesn't this add up," which is worse than typing `COALESCE` once.
+
+**2. Constraints on override_reason, and security on the other columns.**
+
+Yes to both, concretely. Data shape: a CHECK constraint, same style your schema already uses for `chk_referral_doctor_info`/`chk_consultation_type` — several columns required to move together. Given the pending/approved states from before, it's a three-way check: `status='none'` requires everything NULL; `status='pending'` requires `override_reason` filled in but `final_amount` and `override_by` still NULL; `status='approved'` requires all three filled in. No half-filled states allowed.
+
+That constraint alone only proves the data is internally consistent — it says nothing about WHO wrote it. Separate layer needed: a trigger checking the acting user, via `auth.uid()` (never trusted from client input), actually has `role = 'admin'` before `override_status` can move to `'approved'` — and deriving `override_by` from `auth.uid()` itself rather than accepting whatever id the client sends. That second part matters specifically: without it, the CHECK constraint only proves some admin's id is sitting there, not that the person performing this approval is that admin.
+
+**3. What's actually happening with packages — checked against the real file, not memory.**
+
+Confirmed precisely: `packages` carries both `clinic_id` (direct FK, validated against `patient_clinic_access`, the standard tenancy pattern) and `linked_complaint_id` (FK to `complaint_courses`). Not one or the other — both, different jobs.
+
+Here's what I found that matters: `duration_days`, `attended_days`, `missed_days`, and `expiry_date` are all plain stored values. Not generated, not trigger-derived. `packages` has exactly two triggers — one stamps `updated_at`, the other validates `clinic_id`/`patient_id` against `patient_clinic_access` and has nothing to do with attendance. And `visits` has no `package_id` column at all. No FK, no trigger, nothing connects a specific visit to a specific package.
+
+So the actual answer is the opposite of what you were guessing — it's not that visits are the source of truth and packages match against them. Packages are entirely self-contained, plain numbers, with zero structural connection to real visit records. Nothing in the database would catch two visits logged against one package while `attended_days` only got bumped once.
+
+**4. Given that, where would I actually change things?**
+
+Fix the missing link first: `visits.package_id uuid references packages(id)`, nullable. Once it exists, `attended_days` stops being a number the app has to remember to update correctly, and becomes something a trigger keeps correct — incremented whenever a visit with that package_id gets inserted, same discipline `clinics.invoice_counter` already gets.
+
+`missed_days` is genuinely harder — a missed day has no visit row to count. I'd compute it at read time instead of storing it, but this depends on exactly how "missed" gets decided in your real workflow, which I don't know well enough to commit to a design here.
+
+`day_log` has the same issue — untouched by any trigger, a third independent representation of the same underlying fact. I'd pick one source of truth eventually (day_log as the real record, the two counters becoming derived aggregates) rather than three things that can quietly disagree.
+
+Lower priority: no CHECK constraint stops `attended_days` from exceeding `duration_days`. Worth adding once the derivation is settled, as a backstop, not a fix on its own.
+
+**5. Is a single flat rate enough for the standing-discount table?**
+
+No — good catch. One number can only represent "the total is always X, no matter what," which might genuinely be your case, but it can't represent a partial override, and you've described a real one: waived consultation with a normal daily rate, or a normal consultation with a discounted daily rate.
+
+Redesigned: one row per component being overridden, not one row per patient — `patient_id`, `override_type` (`'CONSULTATION_FEE'` / `'THERAPY_RATE'` / `'FLAT_TOTAL'`, same text+CHECK convention as everywhere else here), `override_amount_in_paise`, plus `reason`/`granted_by`/`granted_at`/`expires_at`/`is_active`. A patient can have up to two component rows active at once. Rows instead of columns on one row specifically because each grant deserves its own reason and history — a consultation waiver from two years ago and a three-month therapy discount granted later shouldn't have to share fields.
+
+On your own ₹180 case — I genuinely don't know which of two things it is, and I'd rather ask than assume: `FLAT_TOTAL` (ignore the normal calculation, always 180, no matter how many complaints), or `CONSULTATION_FEE=0` + `THERAPY_RATE=180` (which would still scale up if you ever came in with two complaints at once)? They behave differently the moment a second complaint shows up — worth confirming which one actually matches what happens.
