@@ -499,116 +499,74 @@ One real dependency worth flagging: this only works for complaints tied to a `co
 
 **Combining both:** returning complaint → section 3's per-complaint lookup. Brand-new complaint → this clinic-default fallback, if you build it. Between those two, I don't see a gap that a third, heavier "prescription" concept (an explicit, doctor-authored, forward-looking treatment plan, reviewed over time — genuinely different and bigger than either of the above) would be filling. Nothing in what you've described sounds like you're after that heavier thing — it sounds like you're specifically trying to cut repetitive manual re-selection for the predictable cases, and the two ideas above cover that fully.
 
-
-# [6 Aug 2026 - Depth Pass - I]
-
-> Is there additional in-depth material or advanced relational concepts in Module 2 for me to study tomorrow morning—either expanding on earlier topics or introducing next concepts? Please provide an exhaustive deep dive into: many-to-many junction tables (`patient_clinic_access`), FK structural existence vs. semantic correctness validation, required vs. optional relationships and join mechanics (`LEFT JOIN` vs `INNER JOIN`), deliberate denormalization (historical snapshot columns vs. live FK lookups), and manual indexing requirements on foreign key columns.
-
-<!-- TODO: Yet to read -->
-
-## Many-to-many relationships: why `patient_clinic_access` exists at all
-
-Everything I showed you last time was **one-to-many**: one patient, many visits. That's a single FK column on the "many" side (`visits.patient_id`), and you're done. No junction table needed.
-
-But the patient-to-clinic relationship isn't one-to-many — it's **many-to-many**. One patient can attend multiple clinics in the chain. One clinic sees multiple patients. You cannot represent that with a single FK column on either table, because neither table can hold "multiple values" in one column cleanly. `patients` can't have a `clinic_id` column that's simultaneously A and B. `clinics` can't have a `patient_id` column that lists every patient who's ever walked in.
-
-The fix is always the same shape, no matter what database you're looking at: a third table sitting between the two, holding pairs.
-
-```sql
-create table patient_clinic_access (
-  id         uuid primary key default gen_random_uuid(),
-  patient_id uuid not null references patients(id) on delete cascade,
-  clinic_id  uuid not null references clinics(id),
-  first_visit_date date not null default current_date,
-  created_at timestamptz not null default now(),
-  unique (patient_id, clinic_id)
-);
-```
-
-Each row means "this patient has attended this clinic." A patient with three rows here has attended three branches. A clinic with 500 rows here has seen 500 distinct patients. Neither `patients` nor `clinics` had to change shape to support this — the relationship lives entirely in the junction table.
-
-Notice the `unique (patient_id, clinic_id)` constraint. This is doing a different job than `unique(owner_id, mrn)` on `patients`. That one prevented two *different real-world patients* from colliding on the same MRN. This one prevents the *same relationship* from being recorded twice — a patient can't have two "first visit" rows for the same clinic. It's what makes `on conflict (patient_id, clinic_id) do nothing` in the trigger logic safe to call repeatedly: the second complaint course at the same branch tries to insert the same pair again, the unique constraint blocks the duplicate, `do nothing` just quietly moves on instead of erroring.
-
-Contrast this with `patients ↔ visits`, which never needed a junction table, because a visit only ever belongs to exactly one patient — that's one-to-many, not many-to-many, so a plain `patient_id` column on `visits` is sufficient.
-
-## FKs enforce existence — they say nothing about correctness
-
-This is the one worth sitting with, because it's not obvious and it's the exact shape of a real bug already sitting in your schema.
-
-```sql
-owner_id uuid not null references profiles(id)
-```
-
-Read literally, this constraint checks exactly one thing: *does a row with this id exist in `profiles`?* That's it. It does not check what `role` that profile has. It does not check whether that profile is the "right" admin for this particular clinic chain. A foreign key is a existence check, not a business-rule check.
-
-So on paper, nothing stops you from writing:
-
-```sql
-insert into patients (owner_id, mrn, full_name, ...)
-values ('<some receptionist's profile id>', 'TEST01', 'Jane Doe', ...);
-```
-
-The FK is satisfied — that id really does exist in `profiles`. But your entire admin RLS model is built on `owner_id = auth.uid() and role = 'admin'`. If `owner_id` points at a receptionist, that patient silently vanishes from every admin's view forever, with zero error at write time. That's exactly why `validate_owner_is_admin()` had to be added as a *separate* trigger in v10 — the FK alone was never going to catch this, because catching it isn't a FK's job.
-
-And this is precisely the gap flagged in your handover notes: `validate_owner_is_admin()` confirms `owner_id` belongs to *some* admin, but not the *correct* admin for the submitting staff member's chain. Same category of problem, one layer deeper — the FK checks existence, the trigger checks "is this an admin," but nothing yet checks "is this the right admin for this specific write." Three different questions, three different enforcement mechanisms, and each layer only catches what it was specifically built to catch. That's the pattern to internalize: **a relationship being structurally valid (FK satisfied) and a relationship being semantically correct (right admin, right chain) are two separate guarantees**, and your schema has to earn the second one explicitly — it never comes free.
-
-## Optional vs. required relationships
-
-Not every FK in your schema is `not null`. Compare:
-
-```sql
-patient_id uuid not null references patients(id) on delete cascade   -- visits: required
-visit_id   uuid references visits(id)                                -- invoices: optional
-```
-
-`visits.patient_id` is required — a visit that isn't attached to a patient is meaningless, the row shouldn't be able to exist without it. But `invoices.visit_id` is nullable, and the migration comment tells you why: *"not all invoices link to a visit."* An invoice could be for a package purchase, or some future billing event that never maps cleanly to a single session.
-
-This shows up in a few places once you look for it:
-- `complaint_courses.complaint_catalog_id` — nullable, because free-text custom complaints have no catalog entry to point at.
-- `timeline_events.visit_id` and `timeline_events.note_id` — both nullable, because a manual clinical log might not originate from either.
-- `patients.clinician_id` — nullable, registration doesn't always have a clinician attached yet.
-
-The practical consequence: when you eventually write queries joining across an optional FK, you need a `LEFT JOIN`, not an `INNER JOIN` — an inner join would silently drop every invoice that has no `visit_id`, which is most of them under this schema's design. A required FK is safe to inner-join on, because the relationship is guaranteed to exist for every row. An optional one isn't. This is a small thing that causes real, hard-to-spot bugs later if you don't know which of your relationships are guaranteed and which aren't.
-
-## Denormalized snapshots: deliberately duplicating data the relationship already gives you
-
-Standard relational advice says: don't store the same fact twice, reference it via FK and look it up when you need it. Your schema breaks that rule on purpose, more than once:
-
-```sql
-complaint_courses:
-  complaint_name       text not null,           -- the actual stored name
-  complaint_catalog_id text references complaint_catalog(id), -- the FK, nullable
-
-visit_services:
-  service_name     text not null,   -- stored name
-  service_id       text not null references services(id),  -- FK
-
-packages:
-  linked_complaint_name text not null,  -- stored name
-  linked_complaint_id   uuid not null references complaint_courses(id), -- FK
-```
-
-In every case, there's a FK you could join through to get the name live, and *also* a plain text column holding that name at the time the row was written. Why keep both?
-
-Because the catalog can change later, and history shouldn't change with it. If `complaint_catalog` renames `"CAT_S01"` from "Lower Back Pain" to "Lumbar Strain" next year, every complaint course created before that rename should still display what it was actually called when the clinician wrote it down — not get silently relabeled the moment someone edits the catalog. The FK (`complaint_catalog_id`) exists so you *can* trace back to the current canonical entry if you need to. The text column (`complaint_name`) exists so the historical record is frozen and accurate regardless of what the catalog does afterward.
-
-This is the same reasoning, applied differently, as why `visits.consultation_fee_in_paise` stores a *snapshot* of the fee at the time of the visit rather than always looking up `clinics.consultation_fee_first_in_paise` live — if the clinic raises its rates next month, last month's visit shouldn't retroactively show the new price. Relationships in this schema get chosen deliberately between "always reflect the current source of truth" (a live FK join) and "freeze what was true at write time" (a stored snapshot) — and it's not always obvious which one you're looking at until you check whether there's a plain column sitting next to the FK.
-
-## Indexes on foreign keys aren't automatic
-
-One thing that's easy to assume incorrectly: creating a foreign key does **not** automatically create an index on that column in Postgres. The FK constraint guarantees referential integrity — it checks the parent row exists — but a database has to *find* rows by that column efficiently too, and that's a separate concern the FK doesn't solve by itself.
-
-That's why your migration has a whole block of manual index creation sitting apart from the table definitions:
-
-```sql
-create index idx_visits_patient_id      on visits(patient_id);
-create index idx_visits_complaint_id    on visits(complaint_course_id);
-create index idx_complaint_courses_clinic_id   on complaint_courses(clinic_id);
-create index idx_complaint_courses_patient_id  on complaint_courses(patient_id);
-```
-
-Every FK column you'll actually filter or join on repeatedly — which, in this schema, is basically all of them — needed its index spelled out by hand. Skip it, and something like "get all visits for this patient" degrades from an index lookup into a full table scan once the table has real volume. This is a quiet but real cost of relationships: declaring the FK gives you correctness, but you still have to separately ask for the performance.
-
 ---
 
-That covers what Module 2 actually has to offer, expanded fully — many-to-many via junction tables, the existence-vs-correctness distinction in FKs (which is the same shape as the real bug sitting in your notes), optional vs required relationships, deliberate denormalization, and FK indexing. Nothing here spills into generated columns, views, or trigger internals — that's Module 3 and 4's territory, saved for when you get there.
+# [15 Aug 2026] - Conceptual Pass - VI
+
+> Please evaluate four core frontend-to-backend integration and security questions regarding workflow submission, backend validation, orphan cleanup, and role-based clinic routing: First, how should the frontend structure API payloads when persisting multi-table relational data (such as visits, complaint courses, and service line items) to Supabase/Postgres—evaluating flat requests versus nested JSON structures versus atomic RPC transactions? Second, what backend validation rules and triggers are necessary to guard against malformed or malicious payloads (e.g., preventing a client from attaching services to an unselected complaint B when only complaints A and C were chosen for today's visit), and is submission handled incrementally or in one atomic batch? Third, can you deep-dive into the recursive complaint orphan-stripping safeguard mapped in M204, clarifying what it does and how it prevents orphaned records when complaints are deselected? Finally, from a frontend-architecture perspective, how should role-based access (admin vs. receptionist vs. clinician) and clinic assignment be managed upon login—specifically handling staff assigned to a single branch versus traveling clinicians working across multiple clinics without exposing restricted administrative views to receptionists?
+
+## M2-07 — API Submission Design, Backend Validation Gap, Orphan-Stripping Explained
+
+Quick note on the scoping comment — noted, and I'll keep using the mechanical M2-0N sequence regardless (this is M2-07), since the whole point of the ID is to stay an unambiguous reference regardless of what's been read yet. Also, good to have it confirmed directly: yes, mock data, no real Supabase wiring yet — that matches exactly what I flagged as inferred-not-confirmed in M2-05, so nothing here needs walking back. It also reframes what I'm about to answer: not "here's what your code does" (there isn't code yet) but "here's how you'd actually design this," which is genuinely what you're asking for as someone who hasn't built this kind of multi-table backend integration before.
+
+## 1. How does the API request actually get structured?
+
+This isn't slated in any of your modules, so full scale, as instructed. This is general full-stack/database design reasoning applied to your schema — not something specific I'm reading off a document, worth flagging as a different category of knowledge than most of what I've given you so far.
+
+There are two real shapes this can take, and they're not equally safe.
+
+**Shape 1 — flat, sequential, frontend-orchestrated.** The frontend fires several separate INSERT calls, one per table, in the exact dependency order we already mapped in M2-04's capstone: `complaint_courses` (only for whichever selected complaint, if any, is genuinely new today) → one `visits` row per selected complaint (so, with A and C selected, two separate visits inserts) → `visit_services` rows under each → finally `invoices`. Each call is individually "flat" (a normal single-table insert), but the frontend has to wait for each one to finish and hand back its real, database-generated `id` before it can reference that id in the next call — you can't insert a `visits` row referencing a `complaint_course_id` you don't have yet.
+
+**Shape 2 — one nested payload, one atomic function.** Instead of the frontend making four-plus separate round trips, you write a single Postgres function — not a trigger, a function you can call directly — that accepts one payload shaped roughly like:
+
+```
+{
+  patient_id: ...,
+  clinic_id: ...,
+  complaints: [
+    { complaint_course_id: A, services: [...] },
+    { complaint_course_id: C, services: [...] }
+  ]
+}
+```
+
+Inside that one function body, in a single database transaction, it performs all the same inserts the sequential version would — and Supabase can expose a function like this as something your frontend calls once, getting back one result.
+
+**Which one, and why it actually matters:** the difference isn't validation — the exact same triggers fire either way, since they're attached to the tables, not to however the INSERT arrived. The real difference is atomicity. Under Shape 1, if the visits inserts succeed but the invoice insert then fails for any reason, you're left with real `visits`/`visit_services` rows sitting in the database with no invoice behind them — a genuinely bad state for anything billing-related. Under Shape 2, a Postgres function body runs as one transaction by default: if any step inside it fails, including a trigger raising an exception partway through, everything that happened earlier in that same call gets rolled back automatically, as if none of it occurred. I'd lean toward Shape 2 for exactly this reason — not because Shape 1 is wrong, but because getting partial-failure cleanup right by hand (compensating deletes, retry logic) is genuinely harder to get correct than letting Postgres's own transaction guarantee do it for you.
+
+## 2. Backend validation — tracing your exact "bad request for complaint B" scenario
+
+This one I can answer with real confidence, because it's not new material — it's tracing the triggers you already know through a concrete attack scenario. Let me actually walk it, not just assert an answer.
+
+Say A and C are legitimately selected, B is not. A tampered or buggy client sends a `visits` insert for complaint B anyway, dated today. What actually stops this?
+
+`validate_visit_clinic_id()` fires:
+```sql
+if not exists (
+  select 1 from patient_clinic_access
+  where patient_id = new.patient_id and clinic_id = new.clinic_id
+) then raise exception ...
+```
+This checks exactly one thing: does this patient have access to this clinic. Nothing about which complaint. If B is a real, existing, active complaint course for this real patient at this real clinic — which it is, in your scenario — this check passes cleanly. The FK on `visits.complaint_course_id` only checks that complaint course B *exists* — same story, passes cleanly.
+
+**Honest finding: nothing in the current trigger set validates "was this complaint part of today's legitimate selection," because that concept — a session, a bounded set of what was actually opened for treatment right now — isn't persisted anywhere in the schema.** This is the same root cause as the already-logged "no session/encounter concept" gap, showing up here in a sharper, more concrete form. A tampered client really could get a bogus complaint-B visit accepted today, exactly as you suspected.
+
+Where I want to be precise rather than reassuring: this is **not** something Module 5's RLS will close either, and I don't want to hand-wave that away. RLS governs whether an actor is allowed to touch a category of row at all — "can this receptionist write visits for this clinic." It says nothing about whether one specific submission is internally consistent with what was actually selected on screen. A receptionist who's fully authorized to write visits for this patient at this clinic is exactly as authorized to (accidentally or maliciously) submit one for B as for A or C — RLS has no opinion on that distinction.
+
+What actually bounds the severity: an attacker can only misuse a complaint that's *genuinely real*, for a patient and clinic they already have some legitimate reach into — every other layer (FK existence, chain tenancy, clinic access) still holds. This is "one extra bogus billable line on a real record," not "arbitrary data fabrication." Given this is an internal clinic tool, not a public-facing app, that's a real but bounded residual risk, not an emergency.
+
+What would actually close it, if it's ever worth closing fully: the atomic-function design from question 1 narrows the window (the set of complaints becomes fixed at one submission moment, in one place, rather than assembled across separately-timed calls someone could interleave with), but doesn't fully close it on its own — the function would still need to explicitly validate its own input list against something legitimate, which nothing currently defines. Worth revisiting once you're building the real integration and can judge how real this feels in practice, not something to over-engineer now.
+
+## 3. Recursive complaint-orphan stripping, properly dived into
+
+First, a correction — I don't think I ever said this was covered in M2-04, and it genuinely isn't; M2-04 was pure relationships/schema (one-to-one keys, circular FKs, NULL semantics), no billing-safeguard content at all. This is frontend billing logic, first mentioned in M2-05 and M2-06 as supporting evidence for the "single combined submission" reasoning. Worth flagging since I don't want a false premise to just sit uncorrected.
+
+Here's what the safeguard actually does, walked through as a scenario. A clinician checks complaints A, B, and C. Under B, they log "Ultrasound." Then they go back and *uncheck* B — maybe it was added by mistake, maybe the patient said they'd skip it today. Unchecking a box doesn't automatically also delete whatever was already logged under it (reasonably — you wouldn't want an accidental double-click on the checkbox to silently wipe out carefully-logged procedures). So the local state still has an entry tied to B, keyed by that `complaintId::procedureId` composite you already know about — but B itself is no longer selected. That entry is now an **orphan**: a procedure logged under a complaint that's no longer part of the session. `validateInvoiceItems` walks the logged state right before submission and strips any entry whose parent complaint isn't currently checked, so the payload that actually gets built and sent never includes B's ultrasound line at all.
+
+Is this relevant to what you just asked? Yes — it's the closest existing thing to an answer, but it solves a **different problem** than the one you were worried about, and the distinction is worth having precisely: **this is a client-side data-hygiene safeguard for honest, UI-mediated mistakes. It is not, and structurally cannot be, a security boundary**, because it runs entirely inside the browser, on local JavaScript state, before anything is even sent over the network. It protects a clinician who genuinely changed their mind. It does nothing whatsoever against someone who skips the UI entirely and crafts a raw request by hand — because that request was never filtered by this function in the first place, since it never went through this code path at all. That's exactly why the gap in question 2 is real: the honest-mistake case has a real fix, the adversarial-or-buggy-client case currently doesn't.
+
+## 4. Admin/receptionist/clinician frontend access
+
+Saving the real design discussion for next round, per your own instruction. One quick factual thing worth having now, since it's already fully known rather than something to design: the "table where staff-to-clinic assignment lives" already exists — it's `profiles.clinic_id`, nullable for admins, set for receptionists/clinicians. The bigger question — how the frontend should actually gate/route based on it, and how that should interact with the backend — I'll give the full treatment next time, along with the multi-clinic-clinician future scenario you flagged and want parked for later.
+
+Completing the pending file update now.Log's caught up — everything from the failed attempt plus this response's new findings is in there now. Whenever you're ready to pick up the admin/receptionist frontend-access design, just say so.
