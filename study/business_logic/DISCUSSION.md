@@ -205,3 +205,53 @@ No — good catch. One number can only represent "the total is always X, no matt
 Redesigned: one row per component being overridden, not one row per patient — `patient_id`, `override_type` (`'CONSULTATION_FEE'` / `'THERAPY_RATE'` / `'FLAT_TOTAL'`, same text+CHECK convention as everywhere else here), `override_amount_in_paise`, plus `reason`/`granted_by`/`granted_at`/`expires_at`/`is_active`. A patient can have up to two component rows active at once. Rows instead of columns on one row specifically because each grant deserves its own reason and history — a consultation waiver from two years ago and a three-month therapy discount granted later shouldn't have to share fields.
 
 On your own ₹180 case — I genuinely don't know which of two things it is, and I'd rather ask than assume: `FLAT_TOTAL` (ignore the normal calculation, always 180, no matter how many complaints), or `CONSULTATION_FEE=0` + `THERAPY_RATE=180` (which would still scale up if you ever came in with two complaints at once)? They behave differently the moment a second complaint shows up — worth confirming which one actually matches what happens.
+
+# [17 Aug 2026]
+
+**1a. The COALESCE / view thing, slowly, from scratch.**
+
+Your `visits` table already has `grand_total_in_paise` — it automatically equals `consultation_fee_in_paise + services_total_in_paise`, and you can never type a number into it directly; Postgres computes it for you, always.
+
+We're adding a new column, `final_amount_in_paise`. It's empty (NULL) unless someone has genuinely overridden the charge.
+
+So now every visit row has two numbers: `grand_total_in_paise` (what the rules say it should cost) and `final_amount_in_paise` (empty, unless overridden). To find "what did we actually charge," you have to check both: if `final_amount_in_paise` has something in it, use that; otherwise use `grand_total_in_paise`. In SQL that's `COALESCE(final_amount_in_paise, grand_total_in_paise)` — COALESCE just means "give me the first one of these that isn't empty." The annoyance: every report, every invoice screen, every dashboard that wants "the real number" has to remember to type that exact expression, every time, instead of reading one plain column.
+
+The fix is a view — you already have one of these, `daily_ledger`. A view is a saved query that behaves like a table when you read from it, but stores nothing new; it just re-runs its underlying SELECT fresh every time. `daily_ledger` already does this — joins `visits` and `patients`, hands back pre-shaped columns. You'd do the same thing here: a view, say `visits_with_effective_charge`, that selects everything from `visits` plus one extra column: `COALESCE(final_amount_in_paise, grand_total_in_paise) AS effective_charge_in_paise`. From then on, anywhere that needs "what did this actually cost" reads that one column from the view instead.
+
+I'd also floated a *second generated column* as an alternative last time. I want to correct that — I checked Postgres's own documentation rather than leaving it as a maybe: a generation expression cannot reference another generated column, and `grand_total_in_paise` is itself generated, so that route genuinely doesn't work, confirmed, not a toss-up. The view is the real answer.
+
+**1b. Confirming your JWT/approval understanding.**
+
+Yes, exactly right. Let me restate it so you can check it against your own words: the trigger fires the moment someone tries to UPDATE a row to set `override_status = 'approved'`. It checks who is actually making that request, via `auth.uid()` — which comes from the JWT Supabase already verified when that person logged in, not from anything typed into a form. If that real, verified identity isn't `role = 'admin'` in `profiles`, the write gets refused outright, no matter what values were submitted.
+
+The part worth spelling out further: even when a genuine admin IS the one sending the request, the trigger shouldn't trust whatever `override_by` value got submitted either — it should overwrite it with `auth.uid()` itself. Concrete reason this matters: say two admins exist, A and B. A is logged in, actually approving something. If the system just trusted whatever `override_by` got submitted, a bug or a stale dropdown could leave the row saying "B approved this" when A actually did it — the record would misattribute a real action to the wrong real person. Deriving `override_by` from `auth.uid()` instead closes that too: whoever is logged in and clicking approve is who gets recorded, always.
+
+**1c. Naming the columns explicitly instead of saying "the other columns."**
+
+Four columns total, all living on `visits` (and the same four, differently named, on `packages` for refunds): `final_amount_in_paise` (the override number, empty unless overridden), `override_reason` (why), `override_by` (which admin), `override_status` (`'none'` / `'pending'` / `'approved'`). The CHECK constraint governs whether these four agree with each other. The trigger governs who's allowed to write `override_by` and move `override_status` to `'approved'`.
+
+**1d. `day_log`, fully re-explained.**
+
+It's a column on `packages` (not `visits`) — a JSONB field meant to hold a day-by-day calendar for that package: for each day covered, whether it was "attended," "missed," or still "upcoming." Presumably what powers a visual day-strip on a package card.
+
+The issue: exactly like `attended_days` and `missed_days` (the two plain number counters on the same table), nothing in the database ever writes to or checks `day_log`. So there are three separate things all claiming to represent the same fact — which days this patient actually attended — with nothing keeping them in agreement. `attended_days` could say 5 while `day_log` only has 3 entries marked attended, and the database has no way to notice.
+
+**2. The pasted critique — genuinely good, here's specifically why.**
+
+**On the complaint_course_id point** — real and sharper than how I'd put it myself. A same-day visit covering two complaints really does need two separate `visits` rows today, since `complaint_course_id` is a single FK, not a list. What this adds that I hadn't said as clearly: this isn't just an invoicing-convenience problem anymore (how do we bundle multiple visits into one invoice) — the new fee rules turn it into a billing-correctness problem, since the flat 350/150 add-on is only supposed to fire once per session, and two independent visit rows each deciding on their own whether to add it risks charging it twice. That raises the real stakes on resolving the invoice/session decision, not just its convenience.
+
+**On the consultation_type point** — accurate. It's genuinely locked to `'FIRST'`/`'SUBSEQUENT'` only, no gap-return value exists yet, and widening a CHECK to add a permitted value is about as safe as migrations get, matching your own Module 9 material's "safe" category.
+
+**On trigger vs. RLS** — the strongest part, and a distinction I hadn't stated this precisely. RLS's `WITH CHECK` can only accept or reject a write already proposed — a yes/no gate, not a calculator. It can't compute the correct number and substitute it. A trigger can, because it runs before the row is saved and can overwrite a value directly — and it fires no matter how the write arrives, app or otherwise, the same bet `grand_total_in_paise` already makes by being generated.
+
+**What it doesn't cover** — the authorization side (who's allowed to override the computed default, and how that gets proven), which is the four-column design we've built separately. Not competing ideas — its trigger computes the right baseline, the override columns handle the audited exception on top.
+
+Yes, worth the log. Added both the session/billing-correctness reframing and the RLS-vs-trigger point.
+
+**3. Flat total vs. component breakdown, compared properly.**
+
+**FLAT_TOTAL** — for it: radically simple, one check ("does an active FLAT_TOTAL override exist? if so, ignore every other rule, just charge X"), and it matches how you described your own case almost word for word — "no matter if I go after ten days, if I go after one year... one flat rate." Against it: doesn't scale — a second complaint on the same day would still just charge 180 total, likely a bigger discount than intended. And it loses the story behind the number — a bare 180 doesn't say whether it was a waived consultation, a discounted therapy rate, or something else, so a future rate change leaves no way to know if 180 should move with it.
+
+**Component breakdown** (`CONSULTATION_FEE = 0`, `THERAPY_RATE = 180`) — for it: composes correctly and automatically — a second complaint gets the discounted therapy rate too, the exam fee still only applies once, the whole additive engine keeps working exactly as designed. Traceable against future rate changes, since the intent survives, not just the total. Against it: more setup at grant time — someone has to actually decide which component is being overridden, rather than just naming a number. And if your real arrangement genuinely is "always 180, full stop, not thought of as two pieces," forcing it into components could produce the wrong number the moment a second complaint shows up — 0 + 180 + 180 = 360, not the flat 180 the real deal might mean.
+
+Why I'd keep both available rather than pick one: real informal arrangements probably come in both shapes, and forcing every case into one model misrepresents whichever shape doesn't fit. On your own case specifically — going purely off how insistently you've described it — I'd guess FLAT_TOTAL. But that's a guess from your phrasing, not something I can confirm; only you know whether it'd still hold at 180 with two complaints or climb.
