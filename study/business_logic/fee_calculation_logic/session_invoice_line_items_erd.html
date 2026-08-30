@@ -1,4 +1,4 @@
-<div id="erd"></div>
+<div id="erd2"></div>
 <script type="module">
 import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
 const themeMode = document.documentElement.dataset.mode;
@@ -29,16 +29,22 @@ const src = `erDiagram
   SESSIONS {
     uuid id PK
     uuid patient_id FK
+    uuid clinic_id FK
     date date
   }
   VISITS {
     uuid id PK
     uuid complaint_course_id FK
+    uuid clinic_id FK
     uuid session_id FK
   }
   TREATMENT_EVENTS {
     uuid id PK
+    uuid clinic_id FK
+    uuid service_id FK
+    uuid clinician_id FK
     uuid session_id FK
+    date date
   }
   EVENT_LINKS {
     uuid event_id FK
@@ -49,17 +55,17 @@ const src = `erDiagram
   }
   INVOICES {
     uuid id PK
-    uuid session_id FK
+    uuid clinic_id FK
   }
   LINE_ITEMS {
     uuid id PK
     uuid invoice_id FK
     uuid complaint_course_id FK
   }`;
-const { svg } = await mermaid.render('erd-svg', src);
-document.getElementById('erd').innerHTML = svg;
+const { svg } = await mermaid.render('erd2-svg', src);
+document.getElementById('erd2').innerHTML = svg;
 
-document.querySelectorAll('#erd svg.erDiagram .node').forEach(node => {
+document.querySelectorAll('#erd2 svg.erDiagram .node').forEach(node => {
   const firstPath = node.querySelector('path[d]');
   if (!firstPath) return;
   const d = firstPath.getAttribute('d');
@@ -79,7 +85,7 @@ document.querySelectorAll('#erd svg.erDiagram .node').forEach(node => {
   firstPath.replaceWith(rect);
 });
 
-document.querySelectorAll('#erd svg.erDiagram .row-rect-odd path, #erd svg.erDiagram .row-rect-even path').forEach(p => {
+document.querySelectorAll('#erd2 svg.erDiagram .row-rect-odd path, #erd2 svg.erDiagram .row-rect-even path').forEach(p => {
   p.setAttribute('stroke', 'none');
 });
 </script>

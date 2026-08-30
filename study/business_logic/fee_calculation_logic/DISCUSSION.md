@@ -1,4 +1,4 @@
-# [27 Aug 2026]
+# [27 Aug 2026] - SPECIALTY-03
 
 > Re-evaluating specialty treatment decoupling: Since packages are strictly complaint-specific and track `therapy_fee_in_paise`, wouldn't a standalone specialty treatment entity be ignored by packages automatically without needing explicit exclusion logic? Furthermore, what are the architectural trade-offs, pros/cons, and alternatives of introducing a parent `sessions` table—acting as a single-sitting container for multiple complaint-specific `visits` and standalone `specialty_treatment_events` while anchoring session-level invoicing—versus relying on lighter non-session approaches?
 
@@ -78,12 +78,12 @@ None of this is settled. Everything above sits at the same brainstorm stage as s
 
 ---
 
-# [27 Aug 2026] 
+# [27 Aug 2026] - SPECIALTY-04
 
 > Fact-check assumptions and sequentially answer: (1) Does separating specialty treatments from `visits` require a new frontend workflow/screen, or can the current procedure logger accommodate them? (2) Why choose a junction table over a Postgres array column for multi-complaint specialty treatments, and is having zero linked complaints truly acceptable or an accountability gap? (3) Given that visits can vary in composition and multiple complaint courses require distinct visit rows, how do we anchor invoices to a `session_id` while preserving per-complaint financial granularity and audit trail?
 
 
-## SPECIALTY-04 — Specialty UI, array vs junction, session invoicing
+##  — Specialty UI, array vs junction, session invoicing
 
 I'm going to take these in the order you asked — three separate answers, each fact-checked against what's actually in `supabase_migration.md` and `business-rules-log.md` before I say anything about what exists versus what's still proposed. Nothing discussed in this response is built. There is no `sessions` table, no `special_treatment_events` table, no `invoice_line_items` table, no `session_id` column anywhere in the real schema. Everything below is comparing candidate designs, same brainstorm status as sections 5 through 9 of `business-rules-log.md`.
 
@@ -357,4 +357,164 @@ Process note: SPECIALTY-06 ended without its Session Changelog or log-file updat
 **New: body-part linking without a complaint course (Entry 11).** Proposed polymorphic link (`complaint_course_id` OR `catalog_region`, CHECK-enforced). Needs updating: `business-rules-log.md` §9, `handover-fee-computation.md`.
 
 **Frontend workflow (Entry 6 → refined by Entry 12).** Old: complaint multi-select via button, rejected. New: shared inline-chip component at two entry points. Needs updating: future `WORKFLOW.md`, not `business-rules-log.md`.
-
+
+# [30 Aug 2026] SPECIALITY-08 (Pending)
+
+> Please evaluate four deep architectural and schema questions regarding the revised invoicing and ERD design from SPECIALTY-04 through SPECIALTY-07: First, in the proposed `invoice_line_items` model, how do we prevent "ghost invoices" (invoices with zero line items or grand totals mismatched against line item sums), and should Postgres enforce $\ge 1$ valid line item via atomic transactional stored procedures or deferred constraint triggers? Second, defend the decision to remove direct `session_id` foreign keys from `invoices`—explaining the operational assumptions behind this decoupling and how to cleanly query all invoices for a given session/encounter without expensive joins. Third, walk through a concrete multi-complaint financial example (Back Pain covered by package at ₹0, Knee Rehab pay-per-visit at ₹300, and Cupping specialty at ₹500)—demonstrating the exact rows inserted into `invoices` and `invoice_line_items`, explaining how this enables lifetime revenue reporting per `complaint_course_id`, and comparing why this is structurally superior to a "one invoice per visit plus SQL view" approach. Finally, clarify the Mermaid ERD notation symbols (`||--o{`, `||--|{`, `}o--o|`) in plain English, and show the exact Postgres CHECK constraint syntax ensuring each line item links to a visit or a treatment event, but never both.
+
+## SPECIALTY-08 — Invoice integrity, session decoupling, ERD notation
+
+No diagrams, no widgets, no HTML — everything below is text and SQL you can read top to bottom. And since you're only through SPECIALTY-04, I'll rebuild whatever context from 06 and 07 each question actually needs, rather than pointing back at responses you haven't read yet.
+
+**1. The ghost invoice problem**
+
+You're right about the current real schema: `invoices.visit_id uuid references visits(id)` is nullable, with no unique constraint on it either — checked directly against `supabase_migration.md`. Nothing today stops an invoice from existing with no visit behind it at all.
+
+The design under discussion since SPECIALTY-06 (not yet built — nothing past this sentence exists in the real schema) proposes a new child table, `invoice_line_items`, so that one invoice can be made of several billable pieces — a visit, or a specialty treatment logged on its own `treatment_events` row (also proposed, not built) — each carrying its own amount, rather than the invoice being one flat number the way it is today. Your question is exactly the right one to ask about that design: once you introduce a parent-with-children relationship, you've introduced two new ways for the data to lie — a parent with zero children (an invoice that exists but bills nothing), and a parent whose own stored total disagrees with what its children actually sum to.
+
+Let me take these as two separate problems, because the honest mechanisms for solving them are slightly different.
+
+**Zero line items.** Postgres has no native way to say "this row requires at least one matching row in another table" — that's fundamentally different from a foreign key, which only constrains a single row's own columns, and different from a plain `CHECK` constraint, which Postgres flatly refuses to let you write a subquery inside (it will reject the `CREATE TABLE` at the moment you try, not silently allow something unsafe). So "at least one child must exist" has to be enforced procedurally, not declaratively, and there are genuinely two real ways to do it.
+
+The first is a Postgres feature built for exactly this: a deferred constraint trigger. A normal trigger fires immediately, statement by statement. A `CONSTRAINT TRIGGER` declared `DEFERRABLE INITIALLY DEFERRED` instead waits until the very end of the transaction — the moment of `COMMIT` — before it runs. That timing is what makes it useful here: a client can insert the invoice row, then insert its line items, as two separate statements, and as long as both happen inside the same transaction, the deferred check only looks at the data once everything's actually in place. If the transaction ends with zero line items for that invoice, the check fires at commit time, raises an exception, and the *entire* transaction rolls back — including the ghost invoice itself, so no orphaned invoice_number ever survives to be visible. Concretely:
+
+```sql
+create or replace function check_invoice_line_items_integrity()
+returns trigger as $$
+declare
+  item_count integer;
+  item_sum   integer;
+begin
+  select count(*), coalesce(sum(amount_in_paise), 0)
+  into item_count, item_sum
+  from invoice_line_items
+  where invoice_id = new.id;
+
+  if item_count = 0 then
+    raise exception 'Invoice % has no line items', new.id;
+  end if;
+
+  if item_sum <> new.amount_in_paise then
+    raise exception 'Invoice % total % does not match line-item sum %',
+      new.id, new.amount_in_paise, item_sum;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+create constraint trigger invoices_require_valid_line_items
+  after insert on invoices
+  deferrable initially deferred
+  for each row execute procedure check_invoice_line_items_integrity();
+```
+
+Two Postgres specifics worth knowing precisely, not just taking on faith: constraint triggers can only be declared `AFTER`, never `BEFORE` — which makes sense, since checking "does a matching row exist" requires the row to already be there to check against. And this one function handles both of your sub-problems in a single pass, since it's already querying `invoice_line_items` for the existence check, so grabbing the sum in the same query costs nothing extra.
+
+The second real option is to not allow direct table writes at all, and instead expose a single `SECURITY DEFINER` function — something like `create_invoice_with_items(patient_id, clinic_id, line_items jsonb)` — that inserts the invoice and all of its line items together, in one call, and simply never accepts a request with zero items in the first place. This isn't a new pattern for this schema — `process_new_complaint_course()` and `process_new_invoice()` are both already `SECURITY DEFINER` functions, and `patient_clinic_access` is already documented as permitting "no direct client writes, ever — all inserts must flow strictly through" one specific trigger function. The difference is that those are *triggers*, reacting automatically to whatever gets inserted into their table; what I'm describing here is closer to an RPC — code the frontend explicitly *calls*, orchestrating an insert into two tables in one shot, rather than code that reacts to an insert that already happened.
+
+Between the two, I'd lean toward the deferred trigger, specifically because it's more consistent with how every other guard in this schema already works — this whole project's idiom, iteration after iteration, is "guard via trigger reacting to a write," never "guard by restricting which functions clients are allowed to call." The stored-procedure approach is a perfectly legitimate alternative, and arguably simpler to reason about in isolation, but it would be the first thing in this schema built that way, and I'd want a better reason than personal taste to introduce a second architectural idiom alongside the one already used everywhere else.
+
+**Does the total need to stay in sync forever, or just be right once?** This is worth separating out, because it changes which mechanism actually matters. If invoices, once issued, are treated the way a real paper receipt is — a frozen record of what was charged *at that moment*, never edited afterward, only ever superseded by a new document if something needs correcting — then `invoice_line_items` rows are effectively write-once: created together with their parent invoice, never touched again. Under that assumption, the deferred trigger above only ever needs to do its job *once*, at the moment of creation, because there's no later point where the two could legitimately drift apart — nothing is allowed to change either side after commit. I think this is the right assumption to build toward, and it matches the MVP philosophy already established for `visits` — "a visit row existing = complete and paid," no lifecycle, no editing after the fact.
+
+**What actually goes wrong if none of this gets built.** A ghost invoice doesn't fail loudly — it looks exactly like a real one in every column until someone specifically checks whether any line items back it. Two concrete costs follow from that. First, the sequential `invoice_number` itself gets consumed for nothing — a gap appears in the sequence (`INV-2026-0047` exists, corresponds to nothing), and sequential invoice numbering carries real audit weight in most jurisdictions, India included, precisely because an unexplained gap is the kind of thing that draws scrutiny. Second, any revenue report built by summing `invoices.amount_in_paise` — `daily_ledger`, or anything like it later — would silently include money that was never actually earned, or exclude money that was, depending on which direction the drift ran. It's the same character of problem already flagged more than once in this project: silent absence is worse than a loud failure, because it survives undetected far longer.
+
+**2. Defending the removal of `session_id` from `invoices`**
+
+You saw the SPECIALTY-04 diagram, where `INVOICES` did carry a `session_id` foreign key. In SPECIALTY-06, I removed it. Here's the reasoning you haven't seen yet.
+
+Once `invoice_line_items` exists, an invoice's actual contents are already fully described by which line items point at it — each one tracing back to a specific `visits` row or `treatment_events` row. If `invoices` *also* carried a direct `session_id` column, you'd have the same piece of information asserted in two places at once: implicitly, through the line items' sources, and explicitly, through the column. Nothing would stop those two from disagreeing — an invoice could be created with `session_id = X` while its line items actually trace back to visits belonging to session Y, and the schema would have no way of noticing. A column that doesn't add real information, but does add a second place the same fact could be wrong, is a cost with no matching benefit.
+
+The sharper reason, though, is business, not just tidiness. Whether the clinic wants one invoice per day or splits a morning sitting and an evening sitting into two separate invoices is a real, currently open question — I don't know the answer, and you told me directly you don't either, since there's no existing structured workflow to observe yet. If `session_id` becomes day-level (the direction I'd lean, for reasons that belong to a different question), and `invoices` had a mandatory or even just habitually-used direct `session_id` foreign key, that would quietly force one invoice per day as the *only* representable shape — the schema would be making a business decision that hasn't actually been made yet. By leaving `invoices` without that column, the invoice's boundary stays free to be whatever the receptionist actually assembles at the moment of billing — narrower than a session if the clinic wants per-sitting invoices, or wider if they want one combined bill — decided at creation time by which visits and events actually get pulled into that invoice's line items, not locked in advance by a foreign key.
+
+There's a third, more practical consequence worth naming: this means the session-table proposal and the invoice_line_items proposal don't have to be decided or built together. Last time, I laid out a recommended build order for the four things landing on `visits` — the four-bucket fee columns, `package_id`, the override columns, and `session_id` — with `session_id` deliberately last, lowest priority, because it has the least interaction with the money logic. Decoupling invoices from session_id means invoicing work specifically doesn't have to wait on that decision at all. You could build and ship `invoice_line_items` correctly today, in principle, without sessions existing yet.
+
+**Your follow-up — doesn't that make "all invoices for this session" an expensive query?** Let me be honest rather than defensive about this, because I don't think it's actually expensive at this clinic's real scale, and I'd rather say that plainly than manufacture a cost to make the decoupling sound more justified than it is. The query would be a join from `invoices` through `invoice_line_items` to `visits` and `treatment_events`, filtered on `session_id`, with a `DISTINCT` to collapse an invoice that has several line items in the same session down to one row. For a single session's worth of data — a handful of visits, maybe one specialty event, one or two invoices — that's a tiny amount of data by any measure, and every foreign key involved is already indexed, consistent with how this schema indexes every FK elsewhere. It genuinely would not be slow for this clinic.
+
+What it is, honestly, is more *to write* than a single `WHERE invoices.session_id = X` would be — more joins, more surface area to get subtly wrong, more to hold in your head. Rather than accept that cost every time someone needs this query, the same fix already used repeatedly in this project applies again here: a view. Something like `session_invoices`, built once with `security_invoker = true` to respect RLS the same way `daily_ledger` and the already-proposed `visits_with_effective_charge` do, pre-joining exactly this relationship. Anyone who needs "invoices for this session" then just writes `select * from session_invoices where session_id = X` — the join complexity exists exactly once, in the view's own definition, and disappears from everywhere else it's needed. This preserves everything the decoupling buys you (invoices aren't locked into matching session boundaries) while giving you back the cheap, simple query interface you'd otherwise only get from a direct column.
+
+**3. The worked example — and a correction the example itself exposed**
+
+Here's your scenario, built out as real rows. Patient P1 has two active complaint courses: Back Pain, which has an active package covering it, and Knee Rehab, which doesn't. In the same sitting, they also get cupping, which — per what was already established as the specialty-treatment design — lives on its own `treatment_events` row rather than being folded into either complaint's visit, because a single cupping application genuinely doesn't belong to one complaint more than another.
+
+Because `visits.complaint_course_id` is singular and not nullable in the real schema — one visit, one complaint, always — Back Pain and Knee Rehab necessarily produce two separate `visits` rows, even though they happened in the same sitting. That's not new to this design; it's already confirmed behavior, checked directly against the real column definition.
+
+**The visits.** The Back Pain visit has its `therapy_fee_in_paise` zeroed by the package-matching trigger from question one of the last response — the package covers it, so the charge is ₹0, and `package_id` gets set to point at the matched package. The Knee Rehab visit has no package, so its `therapy_fee_in_paise` is the normal ₹300, and `package_id` stays null.
+
+```
+visits:
+  id: V1, patient_id: P1, clinic_id: C1, complaint_course_id: complaint_A (Back Pain),
+      therapy_fee_in_paise: 0, package_id: PKG_backpain, grand_total_in_paise: 0
+  id: V2, patient_id: P1, clinic_id: C1, complaint_course_id: complaint_B (Knee Rehab),
+      therapy_fee_in_paise: 30000, package_id: NULL, grand_total_in_paise: 30000
+```
+
+**The treatment event.** Cupping needs its own row — and building this example out concretely caught something the SPECIALTY-06 attribute list actually left out: `treatment_events`, as I listed its columns last time, had no column at all for what it costs. That's a real gap, not a deliberate omission — a visit's charge lives on the visit itself (`grand_total_in_paise`), independent of whether it's ever been invoiced yet, and a treatment event needs the same thing, a `charged_amount_in_paise` column recording what it cost at the moment it happened, matching the naming already used for `visit_services.charged_amount_in_paise`.
+
+```
+treatment_events:
+  id: TE1, patient_id: P1, clinic_id: C1, service_id: 'cupping',
+      charged_amount_in_paise: 50000, clinician_id: ..., date: today
+```
+
+Cupping covers both complaints today, which is exactly the case the polymorphic link table from last time's Q3-B was built for — each row there points to exactly one target, a real complaint course or a bare body region, never both, never neither:
+
+```
+treatment_event_links:
+  id: L1, treatment_event_id: TE1, complaint_course_id: complaint_A, catalog_region: NULL
+  id: L2, treatment_event_id: TE1, complaint_course_id: complaint_B, catalog_region: NULL
+```
+
+**The invoice and its line items — and the correction.** In the SPECIALTY-04 diagram you already saw, `LINE_ITEMS` carried its own `complaint_course_id` column directly. Working through this example concretely shows that shape doesn't hold up: which single `complaint_course_id` would the cupping line item carry, when cupping legitimately covers two complaints at once? There isn't a correct single answer, because the charge itself — ₹500 — was never split between them; it's one flat price for one application covering both. Forcing a single `complaint_course_id` column onto that line item would mean either picking one complaint arbitrarily (wrong) or leaving it null (which just reproduces the exact "unaccountable absence" problem already corrected once for treatment events themselves).
+
+The fix is the same principle already applied elsewhere in this project — don't store something that's already fully derivable from where it came from. A line item's complaint attribution should always be looked up from its *source*, never stored redundantly on the line item itself: for a visit-sourced line item, that's a direct, single lookup through `visits.complaint_course_id`; for a treatment-event-sourced line item, it's a lookup through `treatment_event_links`, which might return one complaint, several, or — for a service seeker — none at all. So the actual `invoice_line_items` shape drops `complaint_course_id` entirely:
+
+```
+invoices:
+  id: INV1, clinic_id: C1, patient_id: P1, invoice_number: 'INV-2026-0142',
+      amount_in_paise: 80000, date: today, payment_status: 'Paid'
+
+invoice_line_items:
+  id: LI1, invoice_id: INV1, visit_id: V1, treatment_event_id: NULL, amount_in_paise: 0
+  id: LI2, invoice_id: INV1, visit_id: V2, treatment_event_id: NULL, amount_in_paise: 30000
+  id: LI3, invoice_id: INV1, visit_id: NULL, treatment_event_id: TE1, amount_in_paise: 50000
+```
+
+Zero plus thirty thousand plus fifty thousand is eighty thousand paise — ₹800 — matching `invoices.amount_in_paise` exactly, which is precisely what the deferred constraint trigger from question one would have verified before letting this transaction commit.
+
+**Querying lifetime revenue for a specific `complaint_course_id`.** For Knee Rehab, this is clean: sum the amounts of every line item whose source visit has `complaint_course_id = complaint_B` — LI2 counts, unambiguously. For Back Pain, the direct part is equally clean — LI1 counts, contributing ₹0 this time since the package absorbed it. Where it stops being clean is the cupping line item, LI3, which is linked to *both* complaints through `treatment_event_links`. If you're asking "how much revenue has ever touched Back Pain," the honest answer includes LI3's full ₹500 — but that same ₹500 would *also* count toward Knee Rehab's total if you ran the identical query for that complaint, meaning a chain-wide sum across all complaints would double-count anything jointly covered. The alternative — excluding jointly-linked treatment events from any single-complaint total — avoids the double-count but then understates what a complaint's care actually cost, since real work genuinely was done for it. Neither answer is wrong; they're answers to two different questions ("everything that touched this complaint" versus "revenue cleanly attributable to only this complaint"), and which one a report actually needs is a real business decision I can't make for you — it depends on what the number is going to be used for.
+
+**Why this beats one invoice per visit plus a view for the combined receipt.** The alternative you're asking me to compare against: leave `invoices.visit_id` exactly as it is today, create a separate invoice for each of V1, V2, and TE1 — three invoice_numbers instead of one — and build a view purely for *display*, grouping those three rows together so the patient sees what looks like one combined bill.
+
+For pure display, that view genuinely works fine — a view can sum and group three rows just as easily as it can sum three line items under one row. Where it actually breaks is anywhere the *group itself* needs a property that only makes sense at the group level and has to change atomically. `payment_status` is the clearest case: it's a real column on the real `invoices` table today. If the patient pays for everything at once in cash, and that one sitting produced three separate invoice rows, marking "this got paid" means updating three rows, not one — and if that update succeeds on the first two and fails on the third, the view now shows a contradiction: two rows paid, one still pending, for what was, in reality, a single atomic payment that absolutely happened. With one real invoice row carrying three line items, `payment_status` lives in exactly one place, gets touched by exactly one statement, and that specific partial-failure state is structurally impossible. The invoice-numbering point from question one compounds here too — three sequential numbers minted for one transaction is arguably a stranger kind of ghost than a single empty invoice, since it doesn't just risk a gap, it actively misrepresents how many discrete transactions the business believes it processed that day. And if a patient ever disputes a charge, or the clinic needs to reprint what was actually handed over, there's no single row that durably *is* "the invoice" — only a view's computed, ephemeral grouping of three things that each individually represent something smaller than what the patient actually received. `invoice_line_items` gives you one real, referenceable row that the payment, the dispute, and the printed document can all point back to; the multi-invoice-plus-view approach never actually has that row, only a query result that looks like it.
+
+**4. The Mermaid notation, explained plainly**
+
+Every relationship line has a symbol touching each of the two entities it connects. The rule for reading either symbol is the same: it answers the question "starting from one row of the *other* entity, how many rows of *this* entity does it connect to?" Two separate facts get packed into each symbol — whether the minimum is zero (optional) or one (mandatory), and whether the maximum is one (single) or unlimited (many).
+
+A single `|` means exactly one — mandatory, and never more than one. A `o` right before it means the minimum drops to zero — optional. The crow's-foot shape, written as `{` in Mermaid's plain-text syntax, means many — no upper limit. Putting these together: `||` is "exactly one" (mandatory, single). `o{` is "zero or many" (optional, unlimited). `|{` is "one or many" (mandatory, but unlimited — at least one, no cap). `o|` is "zero or one" (optional, but capped at one).
+
+Applying that to what you actually saw: `SESSIONS ||--o{ VISITS` reads as, starting from one visit, there is exactly one session (`||`, next to SESSIONS) — every visit belongs to exactly one session, no exceptions. Starting from one session, there are zero, one, or many visits (`o{`, next to VISITS) — a session can be empty, or hold as many visits as happened that day.
+
+`TREATMENT_EVENTS ||--|{ EVENT_LINKS` reads as, starting from one link row, there is exactly one treatment event (`||`) — a link always belongs to one specific event, never shared. Starting from one treatment event, there is one *or more* link rows (`|{`, not `o{`) — at least one, never zero. That symbol isn't decorative; it's the diagram literally encoding the rule already decided last time — a specialty treatment event isn't allowed to exist with nothing linking it to a complaint or a body region, because an unlinked event is unaccountable in exactly the way you flagged back then.
+
+`LINE_ITEMS }o--o| VISITS` reads as, starting from one visit, there are zero, one, or many line items pointing at it (`}o`, next to LINE_ITEMS) — a visit might not be invoiced yet, or might appear on more than one line item across its life. Starting from one line item, there is zero or one visit (`o|`, next to VISITS) — at most one, and possibly none at all, because it might point at a treatment event instead.
+
+That last "possibly none at all, on both sides" is exactly where the notation's honesty runs out and your actual question starts. The diagram can say a line item points at *at most one* visit and *at most one* treatment event, independently — but it has no way to say "and also, not zero of both at once, and not one of both at once." Cardinality notation only ever describes one relationship at a time; it can't express a rule that spans two different relationships on the same row. That's precisely the gap a `CHECK` constraint fills, and it's the same shape of constraint already used twice in this project for a structurally identical problem — once for `patients.referral_doctor_info` (required only when `referral_mode = 'DOCTOR'`), and once for the `treatment_event_links` table from last time (exactly one of `complaint_course_id` or `catalog_region`, never both):
+
+```sql
+create table invoice_line_items (
+  id                   uuid primary key default gen_random_uuid(),
+  invoice_id           uuid not null references invoices(id),
+  visit_id             uuid references visits(id),
+  treatment_event_id   uuid references treatment_events(id),
+  amount_in_paise      integer not null,
+
+  constraint chk_line_item_source check (
+    (visit_id is not null and treatment_event_id is null)
+    or (visit_id is null and treatment_event_id is not null)
+  )
+);
+```
+
+`visit_id` and `treatment_event_id` are each just ordinary nullable foreign keys — Postgres's normal FK mechanism already guarantees that whichever one is non-null actually points at a real row, nothing special needed there. The mutual exclusion between them — exactly one, never both, never neither — is entirely the job of that final `CHECK`, evaluated against both columns together on every write. This is now the third time this exact constraint shape has done this exact job in this schema, which is a reasonably strong signal it's a genuinely reusable idiom here, not a one-off trick reached for once and forgotten.Fourteen entries now. The one worth flagging as you catch up on 06 and 07: Entry 14 corrects something in the diagram you *have* already seen — `LINE_ITEMS` originally carried its own `complaint_course_id`, and that turned out not to survive contact with a real worked example, for exactly the reason walked through in question 3 above.
