@@ -1,5 +1,7 @@
 # [6 Aug 2026] - Conceptual Pass - I
 
+> Let's transition from Module 1 to begin Module 2 covering relationships and constraints; I have hands-on exercises from Module 1 queued to run tomorrow, so please provide a thorough conceptual pass on foreign keys, cascade behaviors, and table types so I can study the foundational concepts.
+
 ## Foreign Keys: what `references` actually enforces
 
 A foreign key isn't a comment or a naming convention — it's a constraint Postgres checks on every write. Take this line from `patients`:
@@ -56,6 +58,9 @@ Three separate foreign keys, three separate relationships:
 That's the exact mechanic your Module 2 exercise (already sitting in the handover) walks you through hands-on tomorrow: insert a `visits` row for a branch the patient has no access to → watch it get rejected → insert a `complaint_courses` row first → watch `patient_clinic_access` auto-populate → retry the visit → watch it succeed. Reading this tonight, running it tomorrow, should click into place fast since you'll be watching the FK layer and the trigger layer act as two separate checks in real time.
 
 # [6 Aug 2026 - Conceptual Pass - II - Follow-up]
+
+> Reviewing the conceptual pass on foreign keys and constraints, I have several specific questions: First, if `patients.owner_id` cannot be null but is absent from frontend intake forms, is it derived automatically via backend triggers or must the frontend explicitly supply it? Second, does `patients.clinician_id references profiles(id)` only verify ID existence, or is there an additional constraint/trigger checking that the referenced profile actually holds `role = 'clinician'`? Third, why use hard deletes with `ON DELETE CASCADE` instead of soft deletes (and does our schema implement soft deletion), what is the purpose of the `patient_alerts` table compared to `clinical_notes`, and why is default `RESTRICT` behavior on owner/clinic deletion beneficial rather than adding cascade across all foreign keys? Fourth, are reference/seed tables (`services`, `complaint_catalog`) already populated via the initial migration SQL? Fifth, what exact collision problem does the per-clinic sequential `invoice_number` generation trigger solve? Finally, what does it mean that `visits.clinic_id` is "not trusted as a bare FK", what is the purpose of `patient_clinic_access`, and how does the system authorize or disallow a patient across different clinic branches within the same chain?
+
 
 ## 1. Does `owner_id` get set by a trigger, since it's not in your registration form?
 
@@ -156,6 +161,8 @@ So the direct answer: **chain membership is necessary but not sufficient.** `own
 
 # [6 Aug 2026] - Conceptual Pass - III - Follow-up
 
+> In our ongoing gap tracking, I have several conceptual and implementation questions: First, regarding soft deletion, confirm whether `patients.is_active` handles operational deletions while `ON DELETE CASCADE` remains purely an administrative safety net; second, isn't `patient_alerts` (e.g. penicillin allergies, fall risks) redundant with `clinical_notes` (which already includes `is_critical` flags), and does it represent UI mockup scope creep without corresponding frontend forms (how many other tables lack frontend endpoints)? Third, could you break down the exact mechanics of the invoice numbering pipeline—why does Layer 2 execute `UPDATE clinics` with `RETURNING invoice_counter` into `next_num`, why were two triggers consolidated into one in v4 to control execution sequence, and why was it constrained to `BEFORE INSERT` only in v9? Finally, regarding clinic attribution, why must the frontend supply `clinic_id` on visits instead of deriving it automatically on the backend—is cross-clinic staff isolation currently enforced, and what are the trade-offs of auto-deriving `clinic_id` from staff profile assignments or patient attendance history versus explicitly validating client submissions via `patient_clinic_access`?
+
 ## Soft delete — confirmed, you've got it right
 
 Yes — `on delete cascade` is a safety net for an admin/scripting accident, not something that fires in normal operation. `patients.is_active` is the actual day-to-day mechanism. Nothing more to add here, you understood it correctly.
@@ -255,6 +262,8 @@ Your two scenarios, quickly separated, because they're actually different questi
 I'm not resolving this now — it's a real design decision worth sitting with with fresh eyes, probably around when you get to Module 5/6's RLS and SECURITY DEFINER material. Logging it as open.
 
 # [8 Aug 2026] - Conceptual Pass - IV - Follow-up
+
+> To maintain context across iterations, please adopt a response naming convention (e.g. `M{module}-R{number}`), and provide an exhaustive breakdown of four core areas: First, what is the exact step-by-step lifecycle of the invoice numbering trigger—why does it increment and return `clinics.invoice_counter` into `next_num`, what consumes that counter, and is `invoice_number` separate from the primary key UUID `invoices.id`? Second, what is the end-to-end frontend-to-backend visit workflow—does clicking "Start Visit" or selecting a patient immediately hit the database or remain purely client-side state, how are active `complaint_courses` and `services` fetched without prematurely creating a visit record, how could we implement pre-selection for repeat treatment programs, and at what exact moment (procedure submission vs. payment confirmation) is the visit and invoice actually persisted? Third, regarding trigger architecture and `SECURITY DEFINER` (keep technical theory brief for future modules), what table does `BEFORE INSERT` attach to, and what was split versus unified between clinic validation and sequence generation across iterations? Finally, regarding admin multi-clinic access, how should we architect UI views and backend queries for clinic-scoped sessions (via frontend location pickers) versus chain-wide aggregate dashboards, and does relying on client-supplied clinic filters introduce consistency risks?
 
 ## M2-05 — Invoice Trigger Redone, Full Visit Workflow, Security Definer Scope, Admin Views
 
@@ -408,38 +417,13 @@ That distinction is the whole answer. For a receptionist, trusting the frontend'
 
 # [14 Aug 2026] - Conceptual Pass - V 
 
+> Reviewing the visit and invoicing architecture with attached workflow UI screenshots, I have four core questions to address: First, could you provide an instruction snippet to standardize response naming conventions (`M{module}-R{number}`) across Claude projects? Second, please confirm my understanding of the invoice trigger lifecycle: when an insert on `invoices` starts, is the write held in-flight while `process_new_invoice()` runs, increments `clinics.invoice_counter`, returns it into `next_num`, and writes `NEW.invoice_number` directly into the pending row before commit? Third, how should procedure pre-filling work when a patient with multiple active complaint courses attends intermittently (e.g., treating courses A and C on Monday, but A, B, and C on Tuesday)—since visits are 1:1 with complaints, a naive single-date lookup fails, so how do we query the latest `visit_services` per complaint course independently, and does this query pattern remain identical across invoice batching Options A, B, and C? Finally, do we actually need a dedicated `prescriptions` table, or is a clinic-level default service template table (e.g. `clinic_default_services`) paired with previous visit history lookup sufficient to provide automated defaults for new versus returning treatment courses without introducing unnecessary abstractions?
+
 ## M2-06 — Naming Convention, Invoice Trigger Confirmed, Multi-Complaint Pre-fill Design
 
 ## 1. Project-wide naming convention
 
-Here's a self-contained block for the project's custom instructions. Paste this in as-is:
-
-```
-RESPONSE NAMING CONVENTION
-
-At the start of every response, before any other content, add a level-2 header:
-## {ChatID}-{NN} — {3-8 word title describing this response's content}
-
-ChatID: a short prefix identifying what this chat is about, chosen once, at the
-first response in a new chat, then held constant for the rest of that chat.
-- If the chat is clearly a continuation of the module study plan
-  (schema-study-plan-v2.md, Modules 1-10), use M{module number} — e.g. M2, M5.
-- Otherwise, pick a short (1-2 word) slug reflecting the chat's actual topic
-  (e.g. JOBSEARCH, RESUME, SEEDDATA) at the first response, and don't change
-  it for the rest of the chat.
-
-NN: a 2-digit sequential number, starting at 01, incrementing by one on every
-Claude response in this chat (not user messages). Never reused within a chat.
-
-Example: ## M2-07 — RLS staff policy walkthrough
-
-This applies to every response in this project, without exception, including
-short ones. The person may refer back to any past response by its ID (e.g.
-"in M2-04 you said...") — treat that as an unambiguous pointer to that exact
-response's content within the current chat's history.
-```
-
-Applying it starting now — this response is M2-06.
+<!-- Custom instruction to enforce naming convention omitted for maintaining relevance -->
 
 ## 2. Confirming the invoice trigger, and what `NEW` actually is
 
@@ -517,6 +501,9 @@ One real dependency worth flagging: this only works for complaints tied to a `co
 
 
 # [6 Aug 2026 - Depth Pass - I]
+
+> Is there additional in-depth material or advanced relational concepts in Module 2 for me to study tomorrow morning—either expanding on earlier topics or introducing next concepts? Please provide an exhaustive deep dive into: many-to-many junction tables (`patient_clinic_access`), FK structural existence vs. semantic correctness validation, required vs. optional relationships and join mechanics (`LEFT JOIN` vs `INNER JOIN`), deliberate denormalization (historical snapshot columns vs. live FK lookups), and manual indexing requirements on foreign key columns.
+
 <!-- TODO: Yet to read -->
 
 ## Many-to-many relationships: why `patient_clinic_access` exists at all
