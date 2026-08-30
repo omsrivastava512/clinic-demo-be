@@ -223,3 +223,138 @@ One correction to your supporting example, though, since you listed `patient_ale
 
 On `TREATMENT_EVENTS` being too sparse — also correct, and I should be straightforward about how this happened: I'd actually already specified the fuller shape in prose two responses ago, in SPECIALTY-03 — `patient_id`, `clinic_id`, `service_id`, `date`, `clinician_id`, plus the junction to complaint courses — and then just didn't carry that detail into the diagram in SPECIALTY-04. That's a real inconsistency between what I'd written and what I drew, not a deliberate simplification with a good reason behind it. Fixed below, along with removing `session_id` from `INVOICES` directly, since question 3's reasoning means the invoice doesn't need to reference a session at all — only its line items, through whichever visit or treatment event they came from, carry that connection.
 
+
+# [29 Aug 2026] SPECIALITY-07 (Unresolved)
+
+> Please evaluate our specialty treatment architecture across three core technical areas and clinical archetypes: First (Q1), provide the exact SQL trigger body demonstrating how packages strictly zero out `visits.therapy_fee_in_paise` while leaving specialty charges in `services_total_in_paise` isolated without explicit filter branches. Second (Q2), given the clinical distinction between active course patients and standalone "shallow" service seekers (clients walking in solely for self-referred or externally prescribed services like cupping/traction with no internal assessment), brainstorm frontend UX paradigms—evaluating an inline specialty logger subsection with independent body-part selectors (Approach A), a bifurcated daily ledger entry point splitting "Log Visit" from "Log Specialty Treatment" (Approach B), and novel hybrid alternatives. Finally (Q3), evaluate how to represent treated anatomical regions when a service seeker lacks a `complaint_course_id`—addressing (Q3-A) whether the existing `patients` table can accommodate shallow clients without schema changes or flags, and (Q3-B) comparing four anatomical target models: reusing `COMPLAINT_CATALOG.region` entries as anatomical pickers, introducing a dedicated `treatment_target` / `body_part` enum or lookup table, making `complaint_course_id` nullable in junction tables alongside structured body-part fields, or implementing a unified schema pattern that avoids dual code paths.
+
+## SPECIALTY-07 — Package trigger, shallow patients, body-part linking
+
+Going through this in the order you laid it out — Q1, then the shallow-patient validation since you asked for it to shape what follows, then Q2, then Q3-A and Q3-B.
+
+**Q1 — the package-matching trigger, traced line by line**
+
+Nothing below exists yet — `visits.package_id` isn't a real column in `supabase_migration.md`, and neither is the partial unique index this trigger's safety depends on (`idx_one_active_package_per_complaint`, proposed in `handover-packages.md` Priority 3, which is what guarantees the lookup below can never return more than one row). This is proposed SQL matching the design already written up in `business-rules-log.md` §9 and `handover-packages.md` Priority 2 — I'm making it concrete, not describing something built.
+
+```sql
+create or replace function derive_package_id_and_apply_coverage()
+returns trigger as $$
+declare
+  matched_package_id uuid;
+begin
+  -- Nothing to do if this visit isn't charging a therapy fee at all
+  -- (e.g. an exam-only visit, or a MACHINE_ONLY visit).
+  if new.therapy_fee_in_paise = 0 then
+    return new;
+  end if;
+
+  -- Look up an active package for THIS specific complaint course.
+  -- At most one row can match — guaranteed by the partial unique index
+  -- on packages(linked_complaint_id) WHERE status = 'Active'.
+  select id into matched_package_id
+  from packages
+  where linked_complaint_id = new.complaint_course_id
+    and status = 'Active';
+
+  if matched_package_id is not null then
+    new.package_id := matched_package_id;
+    new.therapy_fee_in_paise := 0;
+
+    update packages
+    set attended_days = attended_days + 1
+    where id = matched_package_id;
+  end if;
+
+  -- No match: package_id stays NULL (its default), therapy_fee_in_paise
+  -- is left exactly as it arrived. Ordinary pay-per-visit encounter.
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger visits_apply_package_coverage
+  before insert on visits
+  for each row execute procedure derive_package_id_and_apply_coverage();
+```
+
+Trace it yourself: every identifier this function touches is `new.therapy_fee_in_paise` (read, then conditionally written), `new.complaint_course_id` (read once, for the lookup), `new.package_id` (written), and the `packages` table itself (one `SELECT`, one conditional `UPDATE`). That's the complete list. There is no reference to `visit_services`, no reference to `services`, no reference to `category`, no reference to any specialty-treatment table at all — not because they were filtered out, but because they were never named in the function body in the first place. A specialty charge lives in a different column (`services_total_in_paise`, or under the standalone-table design, a separate `treatment_events` row entirely) that this trigger has no line of code that reads. It stops mattering to specialty treatments the same way a function that only ever opens `file_a.txt` stops mattering to `file_b.txt` — not through a decision, through never having a reason to.
+
+Worth flagging as its own small finding: this trigger's correctness leans on the partial unique index existing first — if that index isn't built yet, the `SELECT ... INTO matched_package_id` could silently return more than one row and Postgres would just take one of them arbitrarily (a `SELECT INTO` doesn't error on multiple rows, it just picks). That's a concrete instance of exactly the build-ordering risk I raised last time — this specific trigger is not safe to deploy before the uniqueness constraint that backs its "at most one match" assumption.
+
+**Validating "no separate client table" — and the real gap that isn't in `patients` at all**
+
+Your instinct is right, and the reason it's right is the one you already gave yourself: conversion. If someone gets a single cupping session today as a self-referred walk-in, and three months from now decides to start real therapy for a shoulder complaint, you do not want that to require moving them out of one table and into another, reconciling identity, re-pointing any historical records, deciding what happens to the old row. Keeping everyone in `patients` means "becoming a real patient" is just that person's first `complaint_courses` row getting created — nothing moves, nothing merges, the row was always the same row.
+
+There's more supporting this than just the conversion argument, checked against the real table. `referral_mode`/`referral_doctor_info` — already in `patients` today, `CHECK (referral_mode IN ('WALKIN','GOOGLE','DOCTOR'))` with `referral_doctor_info` required when `referral_mode = 'DOCTOR'` — already fits your externally-prescribed sub-case almost exactly as-is; an outside physician prescribing lumbar traction is structurally the same shape as the referral mode that already exists. Nothing about `patients` actively resists this archetype.
+
+What I'd add, not as a requirement but as a convenience: rather than a stored flag on `patients` (which would need a trigger to keep synchronized the moment a complaint course finally gets created for someone), a derived view — something like `WHERE NOT EXISTS (SELECT 1 FROM complaint_courses WHERE patient_id = patients.id)`, with `security_invoker = true` per the standing habit — gives the frontend a clean way to ask "is this a shallow patient" without every screen re-deriving that check itself, and it can never drift out of sync because there's nothing to keep in sync. This is the same reasoning already applied once in this project to a different problem — `final_amount_in_paise` stays nullable rather than defaulted specifically to avoid a stored value silently disagreeing with something that's actually always derivable live. Same principle, different table.
+
+Here's the part your question didn't ask about but that I think is the real structural finding: `patient_clinic_access` — the table that determines which branch's staff can even see a patient — is currently auto-provisioned from exactly one place, `process_new_complaint_course()`, triggered specifically by inserting a `complaint_courses` row. The comment on that trigger in the real migration file states plainly that complaint_courses is "the true first clinical touchpoint" and "the correct and only place" to provision that access row. A shallow patient who never gets a complaint course would never trigger that provisioning at all — meaning under the staff RLS policy already designed (commented out in the real SQL, not yet enforced, but specified: "patient visible if `patient_clinic_access` has a row for that patient at the staff member's clinic"), a service-seeker's record would be structurally invisible to the staff who treated them, the moment real RLS policies replace the current `v1_allow_all` placeholder. This is the same shape of problem already solved once before — the intake deadlock in Iterations 6 and 7 of `backend-schema-iterations.md`, where nothing could create the first access row because the only thing that could create it required something else that didn't exist yet. It's resurfacing here for a new reason: the guaranteed first touchpoint (complaint_courses) is no longer actually guaranteed once this archetype exists. Whatever ends up recording a shallow patient's treatment needs to become a second valid provisioning entry point for `patient_clinic_access`, not just a place to log what happened clinically.
+
+**Q2 — frontend workflow, taking your rejection seriously**
+
+Your rejection of the "Applies To" button is correct, and worth being precise about why rather than just conceding it. The Procedure Logger's existing interaction language is direct, single-gesture selection — tap a tile, it's selected. A button that opens a second selection surface introduces an entirely different interaction model — indirect, two-step, modal — for exactly one category of item on an otherwise uniform screen. That's a real, known UX cost: mixing a direct-manipulation pattern with a modal-based pattern on the same surface makes the screen behave inconsistently depending on which tile you tapped, which is more cognitively expensive than it looks on paper, even though each individual interaction is simple in isolation.
+
+Your critique of your own Approach A is also correct, and sharper than "jarring" — it's a structural inversion. Every existing section on that screen has a complaint as the fixed header and procedures as the variable, tappable body. A third section for specialty treatment, structured the way you sketched it, would flip that: the service becomes the header, and complaints become what you're tapping underneath it. Two sections that look identical — numbered, bordered, header-plus-list — behaving with reversed semantics is a worse problem than a modal, because it's not obviously different at a glance the way a button is. A user has to actually engage with the section to discover it works backwards from the ones above it.
+
+**Approach B, evaluated honestly, including a real cost you didn't name.** Splitting the entry point — "Log Visit" versus "Log Specialty Treatment" from the Daily Ledger — is the cleanest possible handling for a true service seeker: they never touch complaint-oriented UI at any point, which is the correct mental model for someone who isn't "doing a visit" in the complaint-course sense at all. Data collected: service, date, and whatever Q3-B settles on for body-part capture — nothing complaint-shaped required. Where it costs something: the active-patient, incidental-specialty case — someone already mid-visit for a real complaint who also gets cupping today, in the same sitting — would need the receptionist to fully exit the flow they're in, return to the Daily Ledger, and start a second, separate top-level flow, re-searching for a patient they were just looking at, to log something that clinically happened in the same encounter. You described this archetype yourself as "the case we have been designing for until now" — the more common one — so Approach B, as a complete solution on its own, optimizes cleanly for the rarer case at a real cost to the more frequent one.
+
+**Approach C — one component, reused at both entry points, rather than choosing between A and B.** Don't nest specialty treatment inside any one complaint's section (Approach A's mistake), and don't force it exclusively through a separate top-level flow either (Approach B's cost for the common case). Instead: a specialty section on the Procedure Logger screen that matches the existing visual language exactly — same tile-tap interaction, no button, no modal — but whose header isn't a complaint, it's simply "Specialty Treatments," standing on its own rather than nested under one. Tapping a specialty tile expands it inline — the same accordion-style expand/collapse already listed as an upcoming refinement for this exact screen in your own catalog metadata, just repurposed — into a row of tappable chips, reusing the identical chip-tap gesture the Complaint Selector screen already uses for its region filter. For an active patient, that chip row is pre-populated from today's already-selected complaints, defaulted to all of them pre-selected so the common case (cupping covers everything being treated today) takes zero extra taps, only requiring a tap to remove one if it doesn't apply. This same component, mounted separately as the lighter Daily-Ledger-launched flow for a service seeker, renders with no complaint chips available at all — because there aren't any — and falls back to whatever Q3-B below settles on instead. The interaction never changes shape depending on which archetype you're logging for; only what's feeding the chip row does. This resolves your original worry directly: it isn't that specialty treatments shouldn't get their own visual identity on the screen — they should, and Approach A's instinct on that point was right — the mistake was only in how that identity was structured, not in that it belongs at all.
+
+**Q3-A — trade-offs, formalized**
+
+Given everything above, three real options, compared directly. No change to `patients` at all — everyone stays in one table, shallow-patient status stays fully derivable and never stored — costs nothing structurally, and is what I'd recommend. A derived view for reporting/UI convenience, layered on top of the first option rather than replacing it — essentially free given it's just a query, and gives the frontend a clean signal without a synchronized column. A genuinely separate table — rejected, and I think for the same reason your own instinct rejected it: it would need real conversion machinery the moment someone crosses from one to the other, re-pointing any historical treatment records and deciding what happens to the abandoned row, and I can't find anything a separate table gets you that the first two options don't already cover. The one thing none of these three options solve on their own is the `patient_clinic_access` provisioning gap above — that's not a `patients`-table problem, it lives in Q3-B's answer instead.
+
+**Q3-B — recording body part without a complaint course, evaluated rigorously**
+
+**Reusing `complaint_catalog.region` directly (your option 1).** Checked against the real table: `complaint_catalog.region` is a fixed seven-value `CHECK` — Spine, Shoulder, Knee, Hip, Elbow, Ankle, Neuro — and it matches the `CATALOG_REGIONS` array in the frontend mock exactly (minus "All," which is a frontend-only filter option, not a stored value). This is stronger than it first looks, and I want to push back on treating it as merely "good enough" — I think region-level is actually the *correct* granularity here, not a compromise. A specific catalog entry like "CAT_S03: Chronic Lower Back Pain" is a diagnosis, not just a location. Recording a self-referred cupping client against that specific entry would be recording a clinical claim nobody actually made — nobody assessed them, so nothing was diagnosed. Region alone only claims *where*, never *what's wrong*, which is exactly the honest boundary of what's actually known for someone who walked in wanting a service and nothing else. For your externally-prescribed sub-case, an outside doctor's instruction ("give lumbar traction") is itself usually about that same coarse granularity, so region fits there too, with the prescription's exact wording better captured as a separate note than forced into the taxonomy. Handles both archetypes without two code paths, since the same `region` column type serves either one — the only difference is which patient row it's attached to.
+
+**A wholly separate body-part taxonomy, decoupled from the catalog (your option 2).** The strongest case for this would be something the region field genuinely can't express — laterality, left versus right, which matters more for something like laser than "region: Shoulder" alone captures. But checked against the real schema, laterality isn't captured anywhere today, for *any* complaint — `complaint_courses.complaint_name` is free text that happens to include "Right Knee" as words, with no structured column backing it. That's a pre-existing gap in the schema generally, not something specific to shallow patients, so it argues for a shared laterality solution applied uniformly later, not for building a second, parallel taxonomy now that would drift conceptually from `complaint_catalog.region` the first time either one changes. I'd set this aside.
+
+**Nullable `complaint_course_id` plus a free-text field (your option 3).** You already flagged the real weakness yourself — "messier to query" — and I'd go further: if the free-text part is the *primary* way body part gets recorded, that's the exact category of mistake this schema already corrected once. `complaint_catalog_id` was added to `complaint_courses` specifically because free-text-only complaints couldn't be reliably grouped or reported on — logged as a fix in Iteration 2 of `backend-schema-iterations.md`. Reintroducing free-text-as-primary here would undo that lesson in a new table. If "structured field alongside the nullable FK" is what's actually meant, that's no longer really a distinct option — it converges with reusing `region`.
+
+**What I'd actually build — combining the honest parts of options 1 and 3, avoiding the free-text trap.** A link row that points to exactly one of two targets, enforced by the database, not by convention:
+
+```sql
+create table treatment_event_links (
+  id                   uuid primary key default gen_random_uuid(),
+  treatment_event_id   uuid not null references treatment_events(id) on delete cascade,
+
+  -- Exactly one of these two is ever set.
+  complaint_course_id  uuid references complaint_courses(id),
+  catalog_region        text check (catalog_region in
+                           ('Spine','Shoulder','Knee','Hip','Elbow','Ankle','Neuro')),
+
+  -- Additive context only — never the primary queryable field.
+  note                 text,
+
+  constraint chk_link_target check (
+    (complaint_course_id is not null and catalog_region is null)
+    or (complaint_course_id is null and catalog_region is not null)
+  )
+);
+```
+
+An active patient's link row carries a real `complaint_course_id`, full diagnostic specificity, exactly as already designed. A service seeker's link row carries a `catalog_region` instead, honest at the granularity that's actually known, with `note` free to hold the outside doctor's exact wording as supplementary record-keeping — the same shape already established for `override_reason`, structured columns doing the querying, free text doing the context, never free text carrying the whole weight alone. Both archetypes flow through the same table, the same trigger, the same downstream billing-assembly code — no second code path anywhere, just a different populated column depending on which kind of patient it is. One honest cost worth naming: `catalog_region`'s allowed values duplicate `complaint_catalog.region`'s CHECK list in a second place, since this schema deliberately avoids Postgres's native `CREATE TYPE` enums in favor of plain `CHECK` constraints — the two lists would need updating together by hand if a region ever gets added or renamed. Small, but real.
+
+And this connects directly back to the gap from Q3-A: whichever table ends up being `treatment_events`, its insert trigger needs to do more than just validate tenancy — it needs to become a second entry point that upserts into `patient_clinic_access` exactly the way `process_new_complaint_course()` already does, so a service seeker's very first interaction with the clinic doesn't leave them invisible to the staff who actually treated them.
+
+**Before I update the log — a gap in my own process, worth naming plainly.** SPECIALTY-06 should have ended with a Session Changelog and a corresponding update to `specialty-decision-log.md`, per what I told you in SPECIALTY-05 — it didn't. I'm folding those entries in now, alongside today's, rather than letting them go missing.File's caught up — twelve entries now, six of them from today. Everything from SPECIALTY-06 that should have landed there last time is in, alongside today's three.
+
+**Session Changelog**
+
+Process note: SPECIALTY-06 ended without its Session Changelog or log-file update, contrary to what I told you in SPECIALTY-05. Both are folded into this update now (Entries 7–9), so nothing from that response was actually lost, just delayed.
+
+**Package-exclusion mechanism (Entry 1).** No change this session — Q1 made the existing, already-corrected explanation concrete with real SQL. Nothing new to log.
+
+**Session table shape (Entry 2 → refined by Entry 7).** Old: table recommended, boundary and columns unresolved. New: leaning day-level boundary; `sessions` needs `clinic_id`; `treatment_events` needs `service_id`/`clinic_id`/`date`/`clinician_id`. Needs updating: `business-rules-log.md` §9, `handover-fee-computation.md`, `handover-index.md`.
+
+**Invoice/session coupling (Entry 5 → refined by Entry 8).** Old: invoice implicitly grouped by session. New: decoupled — invoice boundary follows explicit receptionist action, not a persisted session_id. Needs updating: `business-rules-log.md` §5, `handover-pricing-integrity-overrides.md`.
+
+**New: build sequencing (Entry 9).** Recommended order for the four proposals landing on `visits`, grounded in the real Iteration 5 trigger-ordering bug. Not a `business-rules-log.md` matter — implementation planning, lands in a future migration doc.
+
+**New: shallow-patient archetype (Entry 10).** `patients` stays as-is; real gap found in `patient_clinic_access` provisioning. Needs updating: `business-rules-log.md`, and the comment on `process_new_complaint_course()` in `supabase_migration.md`.
+
+**New: body-part linking without a complaint course (Entry 11).** Proposed polymorphic link (`complaint_course_id` OR `catalog_region`, CHECK-enforced). Needs updating: `business-rules-log.md` §9, `handover-fee-computation.md`.
+
+**Frontend workflow (Entry 6 → refined by Entry 12).** Old: complaint multi-select via button, rejected. New: shared inline-chip component at two entry points. Needs updating: future `WORKFLOW.md`, not `business-rules-log.md`.
+
