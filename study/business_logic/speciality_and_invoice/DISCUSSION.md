@@ -153,7 +153,7 @@ This chat has now built up a real stack of decisions across four responses — t
 
 **Specialty-treatment frontend workflow — new position, not previously logged anywhere.** No prior discussion existed on whether a new screen is needed. New position: no new workflow screen or route required regardless of which backend design wins; the Procedure Logger screen gets a modest addition (a complaint multi-select shown when a specialty/premium service is selected) rather than a rebuild. This is frontend-workflow content, not a business rule, so it doesn't belong in `business-rules-log.md` — it would belong in the `WORKFLOW.md` deliverable referenced in the attached document, if and when that gets built.
 
-# [28 Aug 2026] - SPECIALITY-06 (Unresolved)
+# [28 Aug 2026] - SPECIALITY-06 
 
 > Please evaluate four interrelated architectural questions regarding session boundaries, build sequencing, invoice granularity, and ERD schema corrections: First, where should the session boundary sit—evaluating explicit UI creation (e.g., receptionists starting a session) versus backend inference—and what are the concrete pros, cons, failure modes, and API payload impacts of defining a session simply as a single calendar day (such as accumulating multiple visits throughout the day under one daily container)? Second, what did the warning to "sequence it deliberately rather than bolt it on mid-build" specifically mean regarding execution order and trigger dependencies between the four-bucket fee columns, package auto-zeroing triggers, fee overrides, and `session_id`? Third, how should invoicing operate for same-day multi-sitting encounters—brainstorming whether clinics require immediate per-sitting invoices, consolidated end-of-day invoices, or receptionist-directed line-item grouping? Finally, please address two critical omissions flagged in the revised ERD diagram: (1) `SESSIONS` lacks a `clinic_id` column required for multi-branch tenancy enforcement, and (2) `TREATMENT_EVENTS` is too sparse (showing only `session_id` without essential columns like `service_id`, `clinic_id`, `date`, and `clinician_id`).
 
@@ -358,7 +358,7 @@ Process note: SPECIALTY-06 ended without its Session Changelog or log-file updat
 
 **Frontend workflow (Entry 6 → refined by Entry 12).** Old: complaint multi-select via button, rejected. New: shared inline-chip component at two entry points. Needs updating: future `WORKFLOW.md`, not `business-rules-log.md`.
 
-# [30 Aug 2026] SPECIALITY-08 (Pending)
+# [30 Aug 2026] SPECIALITY-08 (UNRESOLVED)
 
 > Please evaluate four deep architectural and schema questions regarding the revised invoicing and ERD design from SPECIALTY-04 through SPECIALTY-07: First, in the proposed `invoice_line_items` model, how do we prevent "ghost invoices" (invoices with zero line items or grand totals mismatched against line item sums), and should Postgres enforce $\ge 1$ valid line item via atomic transactional stored procedures or deferred constraint triggers? Second, defend the decision to remove direct `session_id` foreign keys from `invoices`—explaining the operational assumptions behind this decoupling and how to cleanly query all invoices for a given session/encounter without expensive joins. Third, walk through a concrete multi-complaint financial example (Back Pain covered by package at ₹0, Knee Rehab pay-per-visit at ₹300, and Cupping specialty at ₹500)—demonstrating the exact rows inserted into `invoices` and `invoice_line_items`, explaining how this enables lifetime revenue reporting per `complaint_course_id`, and comparing why this is structurally superior to a "one invoice per visit plus SQL view" approach. Finally, clarify the Mermaid ERD notation symbols (`||--o{`, `||--|{`, `}o--o|`) in plain English, and show the exact Postgres CHECK constraint syntax ensuring each line item links to a visit or a treatment event, but never both.
 
@@ -518,3 +518,159 @@ create table invoice_line_items (
 ```
 
 `visit_id` and `treatment_event_id` are each just ordinary nullable foreign keys — Postgres's normal FK mechanism already guarantees that whichever one is non-null actually points at a real row, nothing special needed there. The mutual exclusion between them — exactly one, never both, never neither — is entirely the job of that final `CHECK`, evaluated against both columns together on every write. This is now the third time this exact constraint shape has done this exact job in this schema, which is a reasonably strong signal it's a genuinely reusable idiom here, not a one-off trick reached for once and forgotten.Fourteen entries now. The one worth flagging as you catch up on 06 and 07: Entry 14 corrects something in the diagram you *have* already seen — `LINE_ITEMS` originally carried its own `complaint_course_id`, and that turned out not to survive contact with a real worked example, for exactly the reason walked through in question 3 above.
+
+---
+
+# [31 Sep 2026] SPECIALTY-09 (UNREAD)
+
+> Please evaluate four sequential architectural and business logic questions building on SPECIALTY-06 through SPECIALTY-08 using deep sequential thinking: First, regarding the **Discrete Batch Encounter Model (Amazon Cart Analogy)**—where an encounter is strictly defined as an atomic submission batch from the receptionist (e.g., 3 visits + 1 cupping event logged in one pass equals 1 batch, while a return 3 hours later is a 2nd discrete batch with each `visits` row retaining its `created_at`) rather than relying on fuzzy time-window heuristics—what are the concrete schema, trigger, and API payload trade-offs of this "submission-batch" container compared to a daily `patient_day` container, and how should `clinic_id` be derived (explicitly passed in the batch payload and validated against `patient_clinic_access`, or derived via trigger from the primary visit)? Second, regarding **Upfront Package Purchases and Retail Product Line Items** (handling upfront ₹5,000 package purchases before visits are logged and retail physical products like heating pads, resistance bands, or lumbar rolls), how do these attach to `invoice_line_items`, and should `invoice_line_items` expand its XOR constraint (`chk_line_item_source`) to reference `package_purchase_id` and `product_sale_id`, or should they exist entirely outside the visit/session hierarchy? Third, regarding the **"Pay Later" & Unpaid Dues Lifecycle**—replacing the single-touch MVP assumption (*"visit exists = complete and paid cash-in-hand"*) with operational "Pay Later / Close Without Payment" workflows (e.g., patient forgot wallet or settles weekly)—when is the invoice created (is a row always generated at checkout with `payment_status = 'PENDING'` / `'DRAFT'`, or only when money is collected), how does this impact the deferred constraint trigger (`check_invoice_line_items_integrity`), what is the cleanest query pattern for calculating a patient's outstanding ledger balance across visits/invoices, and what is the broader blast radius across the system? Fourth, regarding **Hybrid / Split Payment Modes (Cash + Online)** where payments are split (e.g., ₹200 Cash and ₹300 UPI), what is the superior schema pattern to avoid an over-engineered junction table while maintaining auditability—evaluating **Option A** (structured JSONB `payment_breakdown` on `invoices`), **Option B** (dedicated nullable columns `cash_amount_in_paise` and `online_amount_in_paise` with a `CHECK` constraint validating their sum against `amount_in_paise`), **Option C** (free-text `payment_note` with `payment_mode = 'HYBRID'`), or **Option D** (any alternative design)—specifically weighed against PostgreSQL queryability for daily cash-drawer reconciliation versus implementation complexity.
+
+## SPECIALTY-09 — Batch sessions, retail lines, split payments
+
+Staying text and SQL only, same as last time. Going through your four in order — and since you're still mid-way through SPECIALTY-06, I'll re-establish whatever each answer actually depends on rather than assuming you've hit that part yet.
+
+**1. The discrete-batch encounter model**
+
+Quick grounding first: in SPECIALTY-06, I proposed session = `patient_id + clinic_id + date` — a whole calendar day — specifically because it could be inferred entirely server-side with a trivial date-equality check, needing zero new API surface. I rejected sitting-level session at the time because the only mechanism I could see for it was a fuzzy time-window heuristic — how many hours apart still counts as "the same visit"? — with real edge cases either way you tuned it.
+
+Your batch model sidesteps that fuzziness completely, and I want to be direct about this: it's a better answer than the one I gave, not just a variant of it. "Were these rows submitted together" is not a fuzzy question at all — it's a binary fact about the request, the same way "was this one Amazon order or two" is never ambiguous no matter how close together in time they happened. That's a real improvement over both of my previous options, and I'm updating my recommendation because of it.
+
+**The trade-off, stated precisely.** Day-level session works by being *derivable from data every row was already going to have anyway* — the date a visit happened is intrinsic to that visit, so a trigger can look it up independently, one row at a time, with zero coordination between rows and zero payload change. Batch-level session cannot work that way, and this is worth being exact about rather than hand-waving: "which submission was I part of" is not a fact that lives on any individual row at all — it's a fact about the *request* that created several rows together. A trigger firing on one row, in isolation, has no way to know what else arrived alongside it unless something explicitly tells it. That means batch-level session structurally requires new API surface. It's not a maybe.
+
+The cleanest mechanism I can construct: every insert into `visits` or `treatment_events` gets an optional, nullable `session_id` field in its payload. On the *first* insert of a new "checkout" — the Procedure Logger opening fresh, nothing in memory yet — the frontend simply omits it. The trigger sees no session_id supplied, creates a brand-new session row itself (deriving `clinic_id` from the row's own already-validated `clinic_id`, never from anything the client claims), and returns that new session's id in the response. The frontend holds onto that id for the rest of *this* UI pass, and includes it on every subsequent insert within the same pass. If the same patient comes back three hours later, the frontend has long since forgotten that id — it was only ever held in that one screen's in-memory state — so it omits `session_id` again, and a genuinely new session gets created. The "was this the same batch" distinction falls entirely out of ordinary frontend component lifecycle, without a time-window heuristic, without an explicit "start new session" button, and without ever trusting a client-invented UUID — the id always originates server-side, the client only ever echoes back something it was just handed.
+
+The trigger needs to validate, not blindly trust, whatever session_id does come back — a stale or wrong id could otherwise misattach a visit to the wrong patient's open batch:
+
+```sql
+create or replace function derive_or_attach_session()
+returns trigger as $$
+declare
+  target_session_id uuid;
+begin
+  if new.session_id is not null then
+    select id into target_session_id
+    from sessions
+    where id = new.session_id
+      and patient_id = new.patient_id
+      and clinic_id = new.clinic_id;
+
+    if target_session_id is null then
+      raise exception 'Session % does not belong to patient % at clinic %',
+        new.session_id, new.patient_id, new.clinic_id;
+    end if;
+  else
+    insert into sessions (patient_id, clinic_id)
+    values (new.patient_id, new.clinic_id)
+    returning id into target_session_id;
+  end if;
+
+  new.session_id := target_session_id;
+  return new;
+end;
+$$ language plpgsql;
+```
+
+This needs to run *after* the row's own `clinic_id` has already been validated against `patient_clinic_access` (the same sequencing point I flagged last time for the four other pieces of trigger logic all landing on `visits`) — by the time this function reads `new.clinic_id`, it needs to already be trustworthy, not something this trigger is independently checking.
+
+**Schema difference worth naming:** because sessions are now tied to a real submission event rather than a calendar date, the table doesn't need an explicit `date` column at all — `created_at`, stamped once at creation the same as every other table in this schema, already tells you which day it happened, and nothing about grouping by day is lost, it's just derived (`created_at::date`) rather than stored redundantly. One fewer column than the day-level design needed.
+
+**Your specific `clinic_id` question, answered directly:** never trust it from the payload — this is the single most battle-tested principle in this entire schema, tested across a good chunk of the whole iteration history (the v3 guard triggers, the v5 no-op regression that briefly broke it, the v7 cross-chain tenancy check, the v10 owner-is-admin validation). It should be *derived*, and specifically derived from whichever row triggers session creation — never from an independent, freestanding "create a session" call with no row backing it. That mirrors how `patient_clinic_access` already works: it never gets a direct insert of its own, only ever getting created as a side effect of the *first* `complaint_courses` row, with its `clinic_id`-equivalent lineage flowing from an already-vetted source. Same shape, same reasoning, applied one level up.
+
+**2. Package purchases and retail products**
+
+Direct answer to your either/or: expand `chk_line_item_source`, don't keep these outside the hierarchy. Here's the reasoning.
+
+A `visits` row and a `treatment_events` row both earned their place as valid sources for the same reason — each represents one real, one-time billable act, with its own amount, that needs to exist independent of whether it's been invoiced yet (a visit happens whether or not billing catches up to it instantly). A package purchase fits that shape exactly: "patient bought a 10-day package for ₹5,000, right now" is a single billable event with its own timestamp and its own amount. And there's already a real column for it — checked against the actual schema, `packages.amount_paid_in_paise integer not null default 0` already exists today. This tells me the moment a `packages` row gets created already *is* the purchase event; there's no need to invent a separate `package_purchases` table that would just duplicate most of what `packages` already carries. So: let `invoice_line_items` reference `package_id` directly, as a third valid source.
+
+Retail products are a genuinely different shape, and I want to be precise about why rather than lumping them in identically. Neither `visits` nor `treatment_events` has any notion of quantity — you don't log "3 ultrasound therapies" as one row with quantity 3, the concept doesn't exist there. A physical product sale needs one. And a single retail transaction can plausibly contain several different products at once — a lumbar roll and two resistance bands, bought together. That's a real structural precedent already sitting in the schema, though: a `visits` row can bundle several distinct machine services underneath it via `visit_services`, yet a visit still only ever produces *one* `invoice_line_items` row, never one per machine used. The granularity rule invoice_line_items has been following all along is "one line item per billable *event*," not "one per itemized component within that event." Applying that consistently: a retail purchase should also produce exactly one line item, pointing at a parent transaction row, with that transaction's *own* child table holding the itemized products — the same shape as `visits` → `visit_services`, one level down:
+
+```sql
+create table product_sales (
+  id              uuid primary key default gen_random_uuid(),
+  clinic_id       uuid not null references clinics(id),
+  patient_id      uuid references patients(id),  -- nullable, see below
+  amount_in_paise integer not null,
+  created_at      timestamptz not null default now()
+);
+
+create table product_sale_items (
+  id                    uuid primary key default gen_random_uuid(),
+  product_sale_id       uuid not null references product_sales(id) on delete cascade,
+  product_id            text not null references services(id),  -- reuse the catalog
+  quantity              integer not null default 1,
+  unit_price_in_paise   integer not null,
+  line_amount_in_paise  integer generated always as (quantity * unit_price_in_paise) stored
+);
+```
+
+Worth reusing `services`/`clinic_service_prices` for the catalog and per-clinic pricing part specifically — that's the same reuse instinct already applied to machines and specialty treatments, and `services.category` is already a `CHECK`-constrained fake-enum designed to be extended (`'STANDARD'`/`'PREMIUM'` today), so adding a `'RETAIL'` value costs nothing structurally. What genuinely can't be reused is the sale record itself, since `visit_services` has no quantity column and never needed one.
+
+Now `chk_line_item_source` needs to go from two possible sources to four, and hand-writing that as nested OR conditions gets genuinely error-prone past two columns — this is a good moment to reach for a cleaner Postgres tool instead of mechanically pasting more branches:
+
+```sql
+alter table invoice_line_items
+  add column package_id      uuid references packages(id),
+  add column product_sale_id uuid references product_sales(id);
+
+alter table invoice_line_items
+  drop constraint chk_line_item_source,
+  add constraint chk_line_item_source check (
+    num_nonnulls(visit_id, treatment_event_id, package_id, product_sale_id) = 1
+  );
+```
+
+`num_nonnulls()` is a real, built-in Postgres function — it counts how many of its arguments are non-null. `= 1` expresses "exactly one of these four" cleanly regardless of how many source types eventually exist, which the original hand-written two-column version wouldn't have scaled to gracefully.
+
+**One concrete conflict this surfaces against the real schema, worth flagging plainly.** A pure walk-in retail sale — someone who buys a resistance band and has no clinical relationship to the clinic at all, not even the "shallow patient" archetype from last time, since nothing clinical is happening — shouldn't need a `patients` row at all. But checked directly against the real table, `invoices.patient_id uuid not null references patients(id)` is `not null` today. That's a genuine, concrete blocker for this scenario as currently designed, not a hypothetical one. I'd recommend making `invoices.patient_id` nullable specifically to accommodate anonymous retail transactions — a small, low-risk migration (nullable columns sit at the safe end of the migration-risk spectrum already laid out in `schema-study-plan-v2.md`'s Module 9) — while every clinical source (visits, treatment events, packages) keeps requiring a real patient exactly as it does now.
+
+**3. Pay Later and the payment lifecycle**
+
+Direct answer to your actual uncertainty first: the invoice gets created at checkout, the moment "Create Invoice" is clicked — regardless of whether payment happens right then. `payment_status` is what carries whether money actually changed hands, not whether the row exists at all.
+
+Here's why creating it later, only once payment is collected, doesn't work: during whatever gap exists between "session done" and "patient actually pays," you need *some* durable record that this patient owes this amount for this work — and if that record isn't the invoice, you'd need to invent a second thing that tracks exactly the same fact under a different name, which is pure waste. Better to create the one real row immediately, with a status that honestly reflects where things stand.
+
+There's genuinely good news buried in the real schema on this point, and it's worth being precise about, because it changes how big this feature actually is. Checked directly: `invoices.payment_status text not null default 'Paid' check (payment_status in ('Paid', 'Pending', 'Overdue'))` — 'Pending' and 'Overdue' are *already* valid values today, sitting unused, with a comment in the migration file itself explaining why: "kept for future credit/package billing." Whoever designed this table already anticipated Pay Later, years before this conversation — every invoice today just happens to default to `'Paid'` because the MVP workflow never exercises the other two values. This means Pay Later doesn't need any change to `payment_status`'s shape at all — only to what the application actually does with a value that was already sitting there, ready.
+
+On the "draft" language you floated — I'd draw a real line between draft and pending, not treat them as the same idea with different names. Pending means "the amount owed is real, final, and known — the transaction is genuinely closed from a billing-accuracy standpoint — we just haven't collected the cash yet." Draft would mean something categorically different: "this isn't a committed transaction at all, it's still being assembled, it could still change." I don't think `invoices` should ever hold a draft row — nothing should exist there until "Create Invoice" is actually clicked, which is exactly the moment the deferred integrity trigger from last time would fire and demand real, final line items. Before that click, whatever's building up in the Procedure Logger is just frontend state in memory; no database row, no draft concept needed at all.
+
+**Does this change `check_invoice_line_items_integrity`?** Honestly — no, and I don't want to manufacture a change here just to look thorough when there genuinely isn't one needed. That trigger checks two things: does at least one line item exist, and does the stored total match their sum. Neither question has anything to do with whether payment's been collected. A Pending invoice still needs to represent real, correctly-summed billable work — Pending means "we know exactly what's owed," not "we don't know yet." The integrity check and the payment-collection question are genuinely orthogonal, and it's fine for them to stay that way.
+
+**Querying outstanding balance:** `SELECT SUM(amount_in_paise) FROM invoices WHERE patient_id = X AND payment_status IN ('Pending', 'Overdue')` — a plain sum over a stored, typed column, no joins needed at all. This is simple specifically *because* of the integrity guarantee from last time — `amount_in_paise` is locked in and guaranteed correct at creation, so nothing needs re-summing from line items every time someone wants this number. I'd wrap it as a small `security_invoker = true` view (`patient_outstanding_balances`, grouped by patient) rather than a query every screen has to write itself, consistent with how everything else derived in this project has been handled.
+
+**Now, the blast radius — and I want to actually be exhaustive here rather than stopping at the two things you asked about directly.**
+
+The one that matters most: `daily_ledger`. Checked its real definition — `'Complete' as status` is hardcoded, unconditionally, with the comment "existence of the row = session done and paid. Always 'Complete'." That premise is now false the instant Pay Later exists. A visit can be genuinely done — the session happened, the therapy was delivered — while its invoice sits at `'Pending'`, unpaid. `daily_ledger` would need to actually join through to the invoice (via whatever line-item linkage exists) and show real payment status per row, instead of asserting something that's no longer always true. This is a concrete, existing artifact that breaks, not a hypothetical concern.
+
+Second: a naming collision worth flagging precisely so it never causes real confusion later. The pricing-override design already has its own `'pending'` — `visits.override_status = 'pending'` means "someone requested a price waiver and it's awaiting admin approval," a pricing-correctness concept. `invoices.payment_status = 'Pending'` means "the amount is correct, just not collected yet," a cash-collection concept. These are completely independent — a visit could have a pending override request *and* its resulting invoice could separately sit at Pending payment status, with neither affecting the other — but the shared word is exactly the kind of thing that causes a bug report six months from now where someone's debugging the wrong "pending."
+
+Third: accountability. Every other sensitive write in this schema carries an audit trail — `created_by`, `clinician_id`, `override_by` derived from `auth.uid()`, never trusted from the client. "Who actually collected this payment and marked it Paid" seems like exactly the kind of thing this project's own established instincts would want tracked. I'd add `paid_by` (nullable, references `profiles`) and `paid_at` (nullable `timestamptz`) to `invoices`, following the same nullable-until-it-happens pattern already used for `final_amount_in_paise` and `override_by`.
+
+Fourth, on 'Overdue' specifically, since you're clearly already wondering about it even though you didn't ask directly: I'd resist making it something a scheduled job actively flips over time. Consistent with the same "prefer derived over stored" principle already applied more than once in this project, Overdue doesn't need its own maintained state at all — it can be a read-time computation, `payment_status = 'Pending' AND date < current_date - some_threshold`, checked wherever it's displayed rather than requiring a cron job to keep synchronized. How many days that threshold should be is a genuine business question I'm not going to invent an answer for — especially given you mentioned "settles weekly" as the real pattern, which suggests the threshold might matter less than I'd assume for a cash-heavy walk-in clinic.
+
+Fifth, briefly: invoice numbering doesn't change at all. A Pending invoice still consumes a real sequential `invoice_number` at creation — which is, worth saying plainly, just normal invoicing practice everywhere, not an unusual accommodation. The MVP's "always immediately Paid" assumption was actually the simplification; Pay Later isn't bolting something foreign onto this schema, it's activating plumbing that was already sitting there, unused, since the very first version of this table.
+
+**4. Split payment modes**
+
+Taking your framing seriously rather than talking past it: you're explicitly trying to avoid a junction table, and I think that instinct is *right* for this specific case, not something to push back on for its own sake.
+
+**Ruling out C first, clearly.** A free-text `payment_note` alongside `payment_mode = 'HYBRID'` isn't reliably summable by SQL at all — you'd be regex-parsing strings like "200 cash, 300 UPI" written slightly differently by every receptionist, to answer a question (how much cash is actually in the drawer today) that has to be exactly right, every single day. This is precisely the mistake this schema already corrected once — free text standing in for something that needs to be structured and queryable, the same shape of problem `complaint_catalog_id` was added to fix. I'd reject this outright.
+
+**Ruling out A, for a specific reason, not a general one.** JSONB genuinely earns its place elsewhere in this schema — `clinics.config` is exactly the right shape for it, rarely-read feature flags with no fixed structure. This isn't that. A payment breakdown is a small, fixed, known set of amounts that needs reliable summing every day, and JSONB gives up real safety for flexibility this case doesn't need: nothing stops `{"cash": "twenty thousand"}` — wrong key, wrong type, a string where a number belongs — from being silently accepted at insert time, only surfacing as a problem the first time a report tries to cast it. Every query also needs to know exact key names and cast text to integer by hand (`->>'cash_in_paise'` returns text), which is more ceremony and more room for a typo'd key to silently return null rather than erroring the way a genuinely misspelled column name would.
+
+**Option B, refined and recommended.** Checked against the real schema before locking this in: `clinics.payment_methods_accepted text[] not null default array['CASH', 'UPI', 'CARD']` already lists three modes, not the two your question named — worth building for what's actually already seeded rather than just cash and online:
+
+```sql
+alter table invoices
+  add column cash_amount_in_paise   integer not null default 0,
+  add column online_amount_in_paise integer not null default 0,
+  add column card_amount_in_paise   integer not null default 0,
+  add constraint chk_payment_breakdown_matches_total check (
+    payment_status != 'Paid'
+    or (cash_amount_in_paise + online_amount_in_paise + card_amount_in_paise
+        = amount_in_paise)
+  );
+```
+
+That `payment_status != 'Paid' OR ...` clause is the direct synthesis with question three: a Pending invoice legitimately has all three columns sitting at zero, nothing collected yet, and shouldn't trip the constraint — the reconciliation check only needs to hold once the invoice is actually marked Paid. Reconciliation itself becomes `SELECT SUM(cash_amount_in_paise), SUM(online_amount_in_paise), SUM(card_amount_in_paise) FROM invoices WHERE date = CURRENT_DATE AND payment_status = 'Paid'` — an ordinary, fast, type-safe aggregate, no different in character from summing any other money column already in this schema. I'd also let the existing `payment_mode` text column become derived rather than independently set — `'CASH'` if only the cash column is nonzero, `'HYBRID'` if two or more are — so it can't drift from what the breakdown columns actually say.
+
+**Where I'd note Option D without recommending it yet.** The more extensible version of this same idea is a small `invoice_payments` child table — one row per payment instrument, matching the exact "rows over predetermined columns" reasoning this project has already reached for more than once, for `patient_rate_overrides` and for `invoice_line_items` itself. It would handle a genuine three-or-more-way split without a schema change, and a new payment mode later would need zero migration. But that flexibility isn't free — it's a new table, a new relationship, and its own version of the zero-rows-while-Pending question. For a small, stable clinic with a payment_methods list that's already fixed at three and hasn't needed a fourth, I don't think that cost is buying you anything real today. Worth remembering as the upgrade path if a genuine three-way split or a new payment method ever becomes real — not worth building now.
