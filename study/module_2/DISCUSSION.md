@@ -1,5 +1,6 @@
 # [6 Aug 2026] - Conceptual Pass - I
 
+> **[COMPACTED PROMPT]**
 > Let's transition from Module 1 to begin Module 2 covering relationships and constraints; I have hands-on exercises from Module 1 queued to run tomorrow, so please provide a thorough conceptual pass on foreign keys, cascade behaviors, and table types so I can study the foundational concepts.
 
 ## Foreign Keys: what `references` actually enforces
@@ -59,6 +60,7 @@ That's the exact mechanic your Module 2 exercise (already sitting in the handove
 
 # [6 Aug 2026 - Conceptual Pass - II - Follow-up]
 
+> **[COMPACTED PROMPT]**
 > Reviewing the conceptual pass on foreign keys and constraints, I have several specific questions: First, if `patients.owner_id` cannot be null but is absent from frontend intake forms, is it derived automatically via backend triggers or must the frontend explicitly supply it? Second, does `patients.clinician_id references profiles(id)` only verify ID existence, or is there an additional constraint/trigger checking that the referenced profile actually holds `role = 'clinician'`? Third, why use hard deletes with `ON DELETE CASCADE` instead of soft deletes (and does our schema implement soft deletion), what is the purpose of the `patient_alerts` table compared to `clinical_notes`, and why is default `RESTRICT` behavior on owner/clinic deletion beneficial rather than adding cascade across all foreign keys? Fourth, are reference/seed tables (`services`, `complaint_catalog`) already populated via the initial migration SQL? Fifth, what exact collision problem does the per-clinic sequential `invoice_number` generation trigger solve? Finally, what does it mean that `visits.clinic_id` is "not trusted as a bare FK", what is the purpose of `patient_clinic_access`, and how does the system authorize or disallow a patient across different clinic branches within the same chain?
 
 
@@ -161,6 +163,7 @@ So the direct answer: **chain membership is necessary but not sufficient.** `own
 
 # [6 Aug 2026] - Conceptual Pass - III - Follow-up
 
+> **[COMPACTED PROMPT]**
 > In our ongoing gap tracking, I have several conceptual and implementation questions: First, regarding soft deletion, confirm whether `patients.is_active` handles operational deletions while `ON DELETE CASCADE` remains purely an administrative safety net; second, isn't `patient_alerts` (e.g. penicillin allergies, fall risks) redundant with `clinical_notes` (which already includes `is_critical` flags), and does it represent UI mockup scope creep without corresponding frontend forms (how many other tables lack frontend endpoints)? Third, could you break down the exact mechanics of the invoice numbering pipeline—why does Layer 2 execute `UPDATE clinics` with `RETURNING invoice_counter` into `next_num`, why were two triggers consolidated into one in v4 to control execution sequence, and why was it constrained to `BEFORE INSERT` only in v9? Finally, regarding clinic attribution, why must the frontend supply `clinic_id` on visits instead of deriving it automatically on the backend—is cross-clinic staff isolation currently enforced, and what are the trade-offs of auto-deriving `clinic_id` from staff profile assignments or patient attendance history versus explicitly validating client submissions via `patient_clinic_access`?
 
 ## Soft delete — confirmed, you've got it right
@@ -263,6 +266,7 @@ I'm not resolving this now — it's a real design decision worth sitting with wi
 
 # [8 Aug 2026] - Conceptual Pass - IV - Follow-up
 
+> **[COMPACTED PROMPT]**
 > To maintain context across iterations, please adopt a response naming convention (e.g. `M{module}-R{number}`), and provide an exhaustive breakdown of four core areas: First, what is the exact step-by-step lifecycle of the invoice numbering trigger—why does it increment and return `clinics.invoice_counter` into `next_num`, what consumes that counter, and is `invoice_number` separate from the primary key UUID `invoices.id`? Second, what is the end-to-end frontend-to-backend visit workflow—does clicking "Start Visit" or selecting a patient immediately hit the database or remain purely client-side state, how are active `complaint_courses` and `services` fetched without prematurely creating a visit record, how could we implement pre-selection for repeat treatment programs, and at what exact moment (procedure submission vs. payment confirmation) is the visit and invoice actually persisted? Third, regarding trigger architecture and `SECURITY DEFINER` (keep technical theory brief for future modules), what table does `BEFORE INSERT` attach to, and what was split versus unified between clinic validation and sequence generation across iterations? Finally, regarding admin multi-clinic access, how should we architect UI views and backend queries for clinic-scoped sessions (via frontend location pickers) versus chain-wide aggregate dashboards, and does relying on client-supplied clinic filters introduce consistency risks?
 
 ## M2-05 — Invoice Trigger Redone, Full Visit Workflow, Security Definer Scope, Admin Views
@@ -417,6 +421,7 @@ That distinction is the whole answer. For a receptionist, trusting the frontend'
 
 # [14 Aug 2026] - Conceptual Pass - V 
 
+> **[COMPACTED PROMPT]**
 > Reviewing the visit and invoicing architecture with attached workflow UI screenshots, I have four core questions to address: First, could you provide an instruction snippet to standardize response naming conventions (`M{module}-R{number}`) across Claude projects? Second, please confirm my understanding of the invoice trigger lifecycle: when an insert on `invoices` starts, is the write held in-flight while `process_new_invoice()` runs, increments `clinics.invoice_counter`, returns it into `next_num`, and writes `NEW.invoice_number` directly into the pending row before commit? Third, how should procedure pre-filling work when a patient with multiple active complaint courses attends intermittently (e.g., treating courses A and C on Monday, but A, B, and C on Tuesday)—since visits are 1:1 with complaints, a naive single-date lookup fails, so how do we query the latest `visit_services` per complaint course independently, and does this query pattern remain identical across invoice batching Options A, B, and C? Finally, do we actually need a dedicated `prescriptions` table, or is a clinic-level default service template table (e.g. `clinic_default_services`) paired with previous visit history lookup sufficient to provide automated defaults for new versus returning treatment courses without introducing unnecessary abstractions?
 
 ## M2-06 — Naming Convention, Invoice Trigger Confirmed, Multi-Complaint Pre-fill Design
@@ -503,6 +508,7 @@ One real dependency worth flagging: this only works for complaints tied to a `co
 
 # [15 Aug 2026] - Conceptual Pass - VI (Unresolved)
 
+> **[COMPACTED PROMPT]**
 > Please evaluate four core frontend-to-backend integration and security questions regarding workflow submission, backend validation, orphan cleanup, and role-based clinic routing: First, how should the frontend structure API payloads when persisting multi-table relational data (such as visits, complaint courses, and service line items) to Supabase/Postgres—evaluating flat requests versus nested JSON structures versus atomic RPC transactions? Second, what backend validation rules and triggers are necessary to guard against malformed or malicious payloads (e.g., preventing a client from attaching services to an unselected complaint B when only complaints A and C were chosen for today's visit), and is submission handled incrementally or in one atomic batch? Third, can you deep-dive into the recursive complaint orphan-stripping safeguard mapped in M204, clarifying what it does and how it prevents orphaned records when complaints are deselected? Finally, from a frontend-architecture perspective, how should role-based access (admin vs. receptionist vs. clinician) and clinic assignment be managed upon login—specifically handling staff assigned to a single branch versus traveling clinicians working across multiple clinics without exposing restricted administrative views to receptionists?
 
 ## M2-07 — API Submission Design, Backend Validation Gap, Orphan-Stripping Explained
@@ -573,6 +579,7 @@ Completing the pending file update now.Log's caught up — everything from the f
 
 # [16 Aug 2026] - Conceptual Pass - VII (Unresolved)
 
+> **[COMPACTED PROMPT]**
 > Please address four sequential frontend, backend, and security architecture topics: First, clarify the earlier mention of M204 and resolve where it was referenced in relation to submission workflows. Second, pinpoint exactly where the recursive complaint orphan-stripping logic resides—clarifying whether it is currently implemented purely in frontend state/client-side data structures (given that the frontend is not yet wired to Supabase) and how it executes. Third, provide an exhaustive deep-dive and brainstorming session on frontend role-based access control (RBAC) and routing for Admins, Receptionists, and Clinicians—detailing how the UI should gate permissions, interact with `profiles.clinic_id`, and accommodate clinicians practicing across multiple clinic branches in the future. Finally, brainstorm concrete architectural approaches (along with their respective pros, cons, and trade-offs) for backend validation to securely enforce session-bounded complaint and service integrity against invalid or tampered API payloads.
 
 ## M2-08 — M2-04 Resolved, Orphan-Stripping Location, Frontend Roles & Validation Approaches

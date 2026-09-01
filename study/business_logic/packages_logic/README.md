@@ -117,7 +117,7 @@ Question: for package-mode/expiry (chosen at sale), Hold, and Cancel/Refund — 
 
 **The actual test:** does the decision have to be made *right now* to let an in-progress transaction complete, with no safe state to sit in while waiting — or can it sit "requested, not yet acted on" without blocking anything or defaulting to something wrong?
 
-- **Package mode/expiry at the moment of a *new* sale — no safe pending state, structurally.** The sale is happening at the counter now; either it waits for an admin (bad for business) or it's created under a guessed mode, running under the wrong clock immediately. Stays admin-only-final, not just as a conservative default but because there's no safe "pending" version of this to hand a receptionist.
+- **Package mode/expiry at the moment of a *new* sale — no safe pending state, structurally.** The sale is happening at the counter now; either it waits for an admin (bad for business) or it's created under a guessed mode, running under the wrong clock immediately. Stays admin-only-final, not just as a conservative default but because there's no safe "pending" version of this to hand a receptionist. *(Superseded by §11 below — the default itself turns out to be exactly that safe pending state; corrected there.)*
 - **Hold and Cancel/Refund — do have a safe pending state.** While a request sits unactioned, the package just continues exactly as it was — nothing forces an immediate wrong decision. Same shape as the fee waiver. Currently admin-only per Om's existing call (README §1), staying that way — but structurally capable of an approval-workflow later if that restriction is ever loosened. Separate question from whether Om wants to loosen it now (he hasn't).
 - **New: a visit-type per-patient default hint** (mirrors `clinics.default_visit_type`) — lowest stakes of all of these, since `visit_type` is already freely re-picked per visit regardless of any default (§2, already resolved). A wrong pre-fill costs one click, nothing downstream commits to it.
 
@@ -210,14 +210,24 @@ alter table clinic_closures add column closure_type text
 - At most one active package per complaint at a time — add the partial unique index.
 - Days-based (not stored-date-mutation-based) tracking; `clinic_closures` reactive table, not a maintained calendar.
 - `VISIT_BASED` packages can optionally carry an expiry date too — null means indefinite.
-- Package-mode/expiry overrides, Hold, Cancel/Refund: admin-only-final for now.
-- `exclude_sundays`: keep the concept, generalize from a Sunday-only boolean to a per-clinic recurring-weekday set.
+- `exclude_sundays`: keep the concept, generalize into `clinics.recurring_closed_weekdays`.
+- `package_day_waivers`: three-question priority model (attended > waived > missed), admin-gated, never automatic.
+- `status` flip (Active → Expired): lazy, corrected at two touchpoints — attempted visit-linking, and the package detail view — not a background job.
+- Closure auto-detection from login absence: rejected — unreliable signal, would need a scheduled job and backdating reconciliation this design otherwise avoids entirely.
+- Onboarding prompt + close-button-with-consequences: adopted as a UI layer over `clinic_closures`, no new data model needed beyond `clinic_closures.closure_type` (`FULL` / `NO_PACKAGE_PATIENTS`), added to support it structurally.
+- Admin-only clarified: applies to *deviating from default*, not to package creation at all — a default-mode sale is always immediate and receptionist-only, never blocked.
+- Create-at-default-then-request-override adopted for mode/expiry overrides — resolves the "no safe pending state" problem §6 originally flagged.
+- Mode-change reconciliation rule: an approved switch applies from the moment of approval forward; days already recorded under the old mode stay as they were.
+- Pending-override display belongs on both the invoice and the package's view on the patient profile, not just one or the other.
+- Cancel/Refund pending: block new package-linked visits while unactioned.
+- Visit-type lock/permission toggle: not new — same item README §2 already deferred, still deferred.
 
 ## Open — needs Bro/Om's input
 - Final naming for `CALENDAR_BASED` / `VISIT_BASED` (and `duration_days` vs. `visits_promised`) — Om's call.
 - Whether `patients.default_package_mode_hint` should ever be enforced/binding rather than purely advisory.
-- `package_day_waivers` admin-gating — proposed, not yet confirmed.
 - New item: a patient-level default hint for `visit_type` — raised in passing, not designed yet.
+- **Hold pending — genuine unresolved tradeoff:** immediate provisional protection (receptionist-initiated, admin reviews after the fact) vs. nothing happens until approved, then retroactively backdated (stricter, but not real-time). Leaning toward the latter for consistency with the Section 7 precedent, not decided.
+- What happens to a visit whose package-link gets rejected because the package expired at the moment of write — bill it standalone, or force a new package sale first?
 
 ## Deferred (explicitly "later," not being designed now)
 - Converting an already-logged standalone visit into day 1 of a newly-purchased package.

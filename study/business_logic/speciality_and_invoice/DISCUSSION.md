@@ -1,5 +1,6 @@
 # [27 Aug 2026] - SPECIALTY-03
 
+> **[COMPACTED PROMPT]**
 > Re-evaluating specialty treatment decoupling: Since packages are strictly complaint-specific and track `therapy_fee_in_paise`, wouldn't a standalone specialty treatment entity be ignored by packages automatically without needing explicit exclusion logic? Furthermore, what are the architectural trade-offs, pros/cons, and alternatives of introducing a parent `sessions` table—acting as a single-sitting container for multiple complaint-specific `visits` and standalone `specialty_treatment_events` while anchoring session-level invoicing—versus relying on lighter non-session approaches?
 
 
@@ -80,6 +81,7 @@ None of this is settled. Everything above sits at the same brainstorm stage as s
 
 # [27 Aug 2026] - SPECIALTY-04
 
+> **[COMPACTED PROMPT]**
 > Fact-check assumptions and sequentially answer: (1) Does separating specialty treatments from `visits` require a new frontend workflow/screen, or can the current procedure logger accommodate them? (2) Why choose a junction table over a Postgres array column for multi-complaint specialty treatments, and is having zero linked complaints truly acceptable or an accountability gap? (3) Given that visits can vary in composition and multiple complaint courses require distinct visit rows, how do we anchor invoices to a `session_id` while preserving per-complaint financial granularity and audit trail?
 
 
@@ -155,6 +157,7 @@ This chat has now built up a real stack of decisions across four responses — t
 
 # [28 Aug 2026] - SPECIALITY-06 
 
+> **[COMPACTED PROMPT]**
 > Please evaluate four interrelated architectural questions regarding session boundaries, build sequencing, invoice granularity, and ERD schema corrections: First, where should the session boundary sit—evaluating explicit UI creation (e.g., receptionists starting a session) versus backend inference—and what are the concrete pros, cons, failure modes, and API payload impacts of defining a session simply as a single calendar day (such as accumulating multiple visits throughout the day under one daily container)? Second, what did the warning to "sequence it deliberately rather than bolt it on mid-build" specifically mean regarding execution order and trigger dependencies between the four-bucket fee columns, package auto-zeroing triggers, fee overrides, and `session_id`? Third, how should invoicing operate for same-day multi-sitting encounters—brainstorming whether clinics require immediate per-sitting invoices, consolidated end-of-day invoices, or receptionist-directed line-item grouping? Finally, please address two critical omissions flagged in the revised ERD diagram: (1) `SESSIONS` lacks a `clinic_id` column required for multi-branch tenancy enforcement, and (2) `TREATMENT_EVENTS` is too sparse (showing only `session_id` without essential columns like `service_id`, `clinic_id`, `date`, and `clinician_id`).
 
 ## SPECIALTY-06 — Session boundary, sequencing risk, invoice granularity
@@ -226,6 +229,7 @@ On `TREATMENT_EVENTS` being too sparse — also correct, and I should be straigh
 
 # [29 Aug 2026] SPECIALITY-07 (Unresolved)
 
+> **[COMPACTED PROMPT]**
 > Please evaluate our specialty treatment architecture across three core technical areas and clinical archetypes: First (Q1), provide the exact SQL trigger body demonstrating how packages strictly zero out `visits.therapy_fee_in_paise` while leaving specialty charges in `services_total_in_paise` isolated without explicit filter branches. Second (Q2), given the clinical distinction between active course patients and standalone "shallow" service seekers (clients walking in solely for self-referred or externally prescribed services like cupping/traction with no internal assessment), brainstorm frontend UX paradigms—evaluating an inline specialty logger subsection with independent body-part selectors (Approach A), a bifurcated daily ledger entry point splitting "Log Visit" from "Log Specialty Treatment" (Approach B), and novel hybrid alternatives. Finally (Q3), evaluate how to represent treated anatomical regions when a service seeker lacks a `complaint_course_id`—addressing (Q3-A) whether the existing `patients` table can accommodate shallow clients without schema changes or flags, and (Q3-B) comparing four anatomical target models: reusing `COMPLAINT_CATALOG.region` entries as anatomical pickers, introducing a dedicated `treatment_target` / `body_part` enum or lookup table, making `complaint_course_id` nullable in junction tables alongside structured body-part fields, or implementing a unified schema pattern that avoids dual code paths.
 
 ## SPECIALTY-07 — Package trigger, shallow patients, body-part linking
@@ -360,6 +364,7 @@ Process note: SPECIALTY-06 ended without its Session Changelog or log-file updat
 
 # [30 Aug 2026] SPECIALITY-08 (UNRESOLVED)
 
+> **[COMPACTED PROMPT]**
 > Please evaluate four deep architectural and schema questions regarding the revised invoicing and ERD design from SPECIALTY-04 through SPECIALTY-07: First, in the proposed `invoice_line_items` model, how do we prevent "ghost invoices" (invoices with zero line items or grand totals mismatched against line item sums), and should Postgres enforce $\ge 1$ valid line item via atomic transactional stored procedures or deferred constraint triggers? Second, defend the decision to remove direct `session_id` foreign keys from `invoices`—explaining the operational assumptions behind this decoupling and how to cleanly query all invoices for a given session/encounter without expensive joins. Third, walk through a concrete multi-complaint financial example (Back Pain covered by package at ₹0, Knee Rehab pay-per-visit at ₹300, and Cupping specialty at ₹500)—demonstrating the exact rows inserted into `invoices` and `invoice_line_items`, explaining how this enables lifetime revenue reporting per `complaint_course_id`, and comparing why this is structurally superior to a "one invoice per visit plus SQL view" approach. Finally, clarify the Mermaid ERD notation symbols (`||--o{`, `||--|{`, `}o--o|`) in plain English, and show the exact Postgres CHECK constraint syntax ensuring each line item links to a visit or a treatment event, but never both.
 
 ## SPECIALTY-08 — Invoice integrity, session decoupling, ERD notation
@@ -523,6 +528,7 @@ create table invoice_line_items (
 
 # [31 Sep 2026] SPECIALTY-09 (UNREAD)
 
+> **[COMPACTED PROMPT]**
 > Please evaluate four sequential architectural and business logic questions building on SPECIALTY-06 through SPECIALTY-08 using deep sequential thinking: First, regarding the **Discrete Batch Encounter Model (Amazon Cart Analogy)**—where an encounter is strictly defined as an atomic submission batch from the receptionist (e.g., 3 visits + 1 cupping event logged in one pass equals 1 batch, while a return 3 hours later is a 2nd discrete batch with each `visits` row retaining its `created_at`) rather than relying on fuzzy time-window heuristics—what are the concrete schema, trigger, and API payload trade-offs of this "submission-batch" container compared to a daily `patient_day` container, and how should `clinic_id` be derived (explicitly passed in the batch payload and validated against `patient_clinic_access`, or derived via trigger from the primary visit)? Second, regarding **Upfront Package Purchases and Retail Product Line Items** (handling upfront ₹5,000 package purchases before visits are logged and retail physical products like heating pads, resistance bands, or lumbar rolls), how do these attach to `invoice_line_items`, and should `invoice_line_items` expand its XOR constraint (`chk_line_item_source`) to reference `package_purchase_id` and `product_sale_id`, or should they exist entirely outside the visit/session hierarchy? Third, regarding the **"Pay Later" & Unpaid Dues Lifecycle**—replacing the single-touch MVP assumption (*"visit exists = complete and paid cash-in-hand"*) with operational "Pay Later / Close Without Payment" workflows (e.g., patient forgot wallet or settles weekly)—when is the invoice created (is a row always generated at checkout with `payment_status = 'PENDING'` / `'DRAFT'`, or only when money is collected), how does this impact the deferred constraint trigger (`check_invoice_line_items_integrity`), what is the cleanest query pattern for calculating a patient's outstanding ledger balance across visits/invoices, and what is the broader blast radius across the system? Fourth, regarding **Hybrid / Split Payment Modes (Cash + Online)** where payments are split (e.g., ₹200 Cash and ₹300 UPI), what is the superior schema pattern to avoid an over-engineered junction table while maintaining auditability—evaluating **Option A** (structured JSONB `payment_breakdown` on `invoices`), **Option B** (dedicated nullable columns `cash_amount_in_paise` and `online_amount_in_paise` with a `CHECK` constraint validating their sum against `amount_in_paise`), **Option C** (free-text `payment_note` with `payment_mode = 'HYBRID'`), or **Option D** (any alternative design)—specifically weighed against PostgreSQL queryability for daily cash-drawer reconciliation versus implementation complexity.
 
 ## SPECIALTY-09 — Batch sessions, retail lines, split payments

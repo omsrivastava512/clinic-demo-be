@@ -3,6 +3,7 @@
 
 
 
+> **[COMPACTED PROMPT]**
 > Is there additional in-depth material or advanced relational concepts in Module 2 for me to study tomorrow morning—either expanding on earlier topics or introducing next concepts? Please provide an exhaustive deep dive into: many-to-many junction tables (`patient_clinic_access`), FK structural existence vs. semantic correctness validation, required vs. optional relationships and join mechanics (`LEFT JOIN` vs `INNER JOIN`), deliberate denormalization (historical snapshot columns vs. live FK lookups), and manual indexing requirements on foreign key columns.
 
 <!-- TODO: Yet to read -->
