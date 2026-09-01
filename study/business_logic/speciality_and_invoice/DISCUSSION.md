@@ -526,7 +526,7 @@ create table invoice_line_items (
 
 ---
 
-# [31 Sep 2026] SPECIALTY-09 (UNREAD)
+# [31 Aug 2026] SPECIALTY-09 (UNREAD)
 
 > **[COMPACTED PROMPT]**
 > Please evaluate four sequential architectural and business logic questions building on SPECIALTY-06 through SPECIALTY-08 using deep sequential thinking: First, regarding the **Discrete Batch Encounter Model (Amazon Cart Analogy)**—where an encounter is strictly defined as an atomic submission batch from the receptionist (e.g., 3 visits + 1 cupping event logged in one pass equals 1 batch, while a return 3 hours later is a 2nd discrete batch with each `visits` row retaining its `created_at`) rather than relying on fuzzy time-window heuristics—what are the concrete schema, trigger, and API payload trade-offs of this "submission-batch" container compared to a daily `patient_day` container, and how should `clinic_id` be derived (explicitly passed in the batch payload and validated against `patient_clinic_access`, or derived via trigger from the primary visit)? Second, regarding **Upfront Package Purchases and Retail Product Line Items** (handling upfront ₹5,000 package purchases before visits are logged and retail physical products like heating pads, resistance bands, or lumbar rolls), how do these attach to `invoice_line_items`, and should `invoice_line_items` expand its XOR constraint (`chk_line_item_source`) to reference `package_purchase_id` and `product_sale_id`, or should they exist entirely outside the visit/session hierarchy? Third, regarding the **"Pay Later" & Unpaid Dues Lifecycle**—replacing the single-touch MVP assumption (*"visit exists = complete and paid cash-in-hand"*) with operational "Pay Later / Close Without Payment" workflows (e.g., patient forgot wallet or settles weekly)—when is the invoice created (is a row always generated at checkout with `payment_status = 'PENDING'` / `'DRAFT'`, or only when money is collected), how does this impact the deferred constraint trigger (`check_invoice_line_items_integrity`), what is the cleanest query pattern for calculating a patient's outstanding ledger balance across visits/invoices, and what is the broader blast radius across the system? Fourth, regarding **Hybrid / Split Payment Modes (Cash + Online)** where payments are split (e.g., ₹200 Cash and ₹300 UPI), what is the superior schema pattern to avoid an over-engineered junction table while maintaining auditability—evaluating **Option A** (structured JSONB `payment_breakdown` on `invoices`), **Option B** (dedicated nullable columns `cash_amount_in_paise` and `online_amount_in_paise` with a `CHECK` constraint validating their sum against `amount_in_paise`), **Option C** (free-text `payment_note` with `payment_mode = 'HYBRID'`), or **Option D** (any alternative design)—specifically weighed against PostgreSQL queryability for daily cash-drawer reconciliation versus implementation complexity.
@@ -680,3 +680,117 @@ alter table invoices
 That `payment_status != 'Paid' OR ...` clause is the direct synthesis with question three: a Pending invoice legitimately has all three columns sitting at zero, nothing collected yet, and shouldn't trip the constraint — the reconciliation check only needs to hold once the invoice is actually marked Paid. Reconciliation itself becomes `SELECT SUM(cash_amount_in_paise), SUM(online_amount_in_paise), SUM(card_amount_in_paise) FROM invoices WHERE date = CURRENT_DATE AND payment_status = 'Paid'` — an ordinary, fast, type-safe aggregate, no different in character from summing any other money column already in this schema. I'd also let the existing `payment_mode` text column become derived rather than independently set — `'CASH'` if only the cash column is nonzero, `'HYBRID'` if two or more are — so it can't drift from what the breakdown columns actually say.
 
 **Where I'd note Option D without recommending it yet.** The more extensible version of this same idea is a small `invoice_payments` child table — one row per payment instrument, matching the exact "rows over predetermined columns" reasoning this project has already reached for more than once, for `patient_rate_overrides` and for `invoice_line_items` itself. It would handle a genuine three-or-more-way split without a schema change, and a new payment mode later would need zero migration. But that flexibility isn't free — it's a new table, a new relationship, and its own version of the zero-rows-while-Pending question. For a small, stable clinic with a payment_methods list that's already fixed at three and hasn't needed a fourth, I don't think that cost is buying you anything real today. Worth remembering as the upgrade path if a genuine three-way split or a new payment method ever becomes real — not worth building now.
+
+# [01 Sep 2026] SPECIALTY-10 (UNREAD)
+
+> **[COMPACTED PROMPT]**
+> Please evaluate four sequential architectural, clinical intake, and financial reporting questions building on SPECIALTY-07 through SPECIALTY-09 using deep sequential thinking (answering 1, 2, and 3 thoroughly before executing item 4): First, regarding **Joint Complaint and Custom Body Region Linking**—if a patient receiving treatment for a Neck complaint has Cupping applied to both the Neck and Shoulder (for referred spasm)—does handling both simultaneously require relaxing the XOR mutual-exclusion constraint (`chk_link_target`) on `treatment_event_links`, what are the concrete schema impacts, trade-offs, sacrificed invariants, and alternative workarounds? Second, regarding the **Intake Deadlock in Receptionist Click Sequences**—when a receptionist registers a new walk-in patient (inserting into `patients`) and immediately logs a specialty treatment (inserting into `treatment_events`) before any complaint course exists—does the lack of a `patient_clinic_access` row cause Supabase RLS to block the receptionist from querying or selecting the newly created patient on UI re-fetch (recreating the intake deadlock from Iteration 6/7)? Third, regarding **Revenue Attribution for Multi-Linked Specialty Events**—when a single ₹500 specialty event is linked to multiple complaint courses (e.g., Knee Rehab and Back Pain)—how should management and analytics reports aggregate per-complaint revenue without causing double-counting discrepancies where reported revenue exceeds actual bank cash? Fourth (addressed last), provide detailed state-by-state visual mockups comparing all frontend workflow paradigms (the inline specialty subsection vs. the bifurcated daily ledger entry point), plus an additional proposed pattern: an intentional, on-demand **"Add Specialty Treatment"** modal/screen triggered by a button at the end of the logger that is fully reusable across both full-course and shallow walk-in patients, utilizing the most token-efficient visual medium (e.g., structured ASCII wireframes, Mermaid diagrams, or functional unstyled HTML in an artifact) strictly focused on pure UX layout and state progressions without CSS/JS distractions.
+
+## SPECIALTY-10 — XOR relaxation, intake gap, revenue split, UX mockups
+
+Going in your order — 1, 2, 3 fully worked first, 4 saved for last exactly as you asked.
+
+**1. Do we actually need to break the XOR?**
+
+Before answering "what do we lose," I want to check whether losing it is even necessary — and I don't think it is. Here's why.
+
+`chk_link_target` lives on `treatment_event_links`, and it constrains one *row* — it says nothing about how many rows one `treatment_events` row can have. That table was built as a junction specifically so one event can have several links. Your scenario — cupping applied to the neck complaint and, incidentally, the shoulder — doesn't need one row to point at two targets at once. It needs *two* rows, both pointing at the same `treatment_event_id`, each individually satisfying the XOR exactly as designed:
+
+```sql
+-- One cupping event, two link rows — XOR untouched on either one.
+insert into treatment_event_links (treatment_event_id, complaint_course_id)
+values ('TE1', 'neck_complaint_id');
+
+insert into treatment_event_links (treatment_event_id, catalog_region)
+values ('TE1', 'Shoulder');
+```
+
+Both rows describe the same physical application, correctly, without either one needing to carry two targets. Nothing about your scenario is lost this way — querying "what did TE1 touch" returns two meaningful rows instead of one, and both are unambiguously typed. I don't think you need to relax the constraint at all here, and I'd rather tell you that directly than walk you through sacrificing something you don't actually need to sacrifice.
+
+**Since you asked for the full brainstorm anyway, here's what relaxing it would genuinely cost, in case a real case for it ever shows up.** If `complaint_course_id` and `catalog_region` were both allowed non-null on one row, every piece of downstream logic that currently only has to handle "this row is complaint-linked" or "this row is region-linked" — cleanly, as two exhaustive cases — would need a third branch for "this row is both," and that branch would need its own decision about what it *means* (is the region incidental, or co-equal to the complaint?). You'd also be the first place in this schema to break a pattern used three times already — `chk_referral_doctor_info`, the pricing-override CHECK, and this link table itself — all built on "exactly one of two shapes, never both," which is easy to reason about specifically because it's never ambiguous. I'd only reach for relaxing it if a real case surfaces where two rows genuinely can't represent something one combined row could — and I can't construct one.
+
+**One genuinely useful small addition this scenario does surface, though.** Two separate rows treat both targets as co-equal — there's no way to say "the neck was the actual reason, the shoulder was incidental." If that distinction ever matters for billing or reporting (and it will matter for question 3 below), a simple `is_primary boolean default false` column on `treatment_event_links` gives you that lever without touching the XOR at all:
+
+```sql
+alter table treatment_event_links
+  add column is_primary boolean not null default false;
+```
+
+**2. The intake-deadlock trap — is it real for a shallow patient?**
+
+Quick grounding: last time, I proposed that whatever table ends up recording a shallow patient's treatment needs to become a second provisioning point for `patient_clinic_access` — mirroring exactly how `process_new_complaint_course()` already auto-creates that access row the moment a normal patient's first complaint course gets inserted, closing the exact circular dependency Iterations 6 and 7 already solved once (`complaint_courses` needed access to exist, `visits` was the only thing that created access, `visits` needed a `complaint_course` — no valid order existed).
+
+Let me trace your exact click sequence against that proposal. If `treatment_events`' own insert trigger upserts `patient_clinic_access` — the same shape as `process_new_complaint_course()` — then by the time the treatment_events insert actually *commits*, the access row already exists alongside it, in the same write. So there's no deadlock in the strict sense: nothing here is circular, because `treatment_events` provisions access itself rather than depending on something else to have already provisioned it.
+
+But your specific worry is narrower than a write-side deadlock, and it's real. It's about a *read* that might happen in between your two clicks. If the frontend, right after creating the patient, re-fetches a patient list or search results to find and select them for the treatment-events form — rather than just using the id the create-call already handed back — that read goes through the staff RLS policy already specified for `patients`: "patient visible if `patient_clinic_access` has a row for that patient at the staff member's clinic." In that exact millisecond window, no access row exists yet, and that policy would genuinely fail to return this patient. So yes — the same shape of bug, now on the read side instead of the write side.
+
+**The first fix is frontend discipline, and it's already the established pattern for the normal flow.** The workflow document itself already describes registration this way for a regular patient: create the profile, then the backend "automatically returns/fetches the user back directly into the ongoing Visit Workflow" using the id from that response — not by re-searching a list. Applying the identical discipline to the specialty-treatment flow (carry the id forward from the create response, never re-query a filtered list for a patient you were just handed) avoids the window entirely.
+
+**I don't think frontend discipline alone should be trusted here, though, and this schema's own history agrees with that instinct** — nearly every guard trigger in this project exists specifically because relying on the client to behave correctly was judged insufficient. There's a cleaner backend fix that closes the gap at its root: provision the very first access row the moment the patient row itself is created, derived entirely server-side from whoever's actually logged in and doing the registering, never from anything the client submits.
+
+```sql
+create or replace function provision_initial_clinic_access()
+returns trigger as $$
+declare
+  registering_clinic_id uuid;
+begin
+  -- Derived from the currently authenticated user's own profile —
+  -- never a client-submitted clinic_id.
+  select clinic_id into registering_clinic_id
+  from profiles
+  where id = auth.uid();
+
+  -- Admins have clinic_id = NULL by design (they span every branch).
+  -- A receptionist or clinician always has a real one here.
+  if registering_clinic_id is not null then
+    insert into patient_clinic_access (patient_id, clinic_id)
+    values (new.id, registering_clinic_id)
+    on conflict (patient_id, clinic_id) do nothing;
+  end if;
+
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger patients_provision_initial_access
+  after insert on patients
+  for each row execute procedure provision_initial_clinic_access();
+```
+
+By the time the `patients` insert itself finishes, the access row already exists — there is never a window, not even a millisecond one, where the patient exists at their registering clinic without it. This doesn't replace `process_new_complaint_course()`'s provisioning — that stays exactly as designed, and it's still what's needed for a genuinely different case: an *existing* patient from Branch A being seen for the first time at Branch B, which this new trigger, firing only at patient-creation, has no reach into at all. It's worth noting this fix isn't specific to shallow patients either — it closes the same millisecond gap for an ordinary new patient too, before their first complaint course even exists, which today's design (complaint_courses as the only provisioning point) technically leaves open as well.
+
+I should be straightforward about this: my Entry 10 answer last time solved the write-side half of this problem and missed the read-side half you just caught. That's a real gap in what I told you, not just a refinement.
+
+**3. Resolving the double-counting question, decisively**
+
+Last time I left this genuinely open — "Om's call" — and I want to push further now that you've put real numbers against it, because I think there's a cleaner answer than "pick a convention" once two different questions get separated out.
+
+The confusion comes from treating "revenue" as one number when your example is actually asking two different questions that happen to share a word.
+
+**Question one: what's our actual chain-wide revenue?** This has exactly one correct answer, and it should never be in doubt: ₹800, full stop — the sum of what's actually in the till, computed directly from `invoices`/`invoice_line_items`, counted once each, with zero reference to how many complaints anything happened to touch. This number should be computed completely independently of any per-complaint breakdown, precisely so it can never accidentally inherit a convention built for a different purpose.
+
+**Question two: how much revenue did Knee Rehab, specifically, generate?** This is the one that's genuinely ambiguous, and it's worth being precise about *why* it's ambiguous rather than just noting that it is. ₹500 of cupping revenue exists exactly once, physically, in the till — but it was earned treating two complaints at the same time. Asking how much of it "belongs" to one of them is like asking how much of a shared taxi fare belongs to each of two friends who split the ride — there's no physically correct single answer, only allocation conventions, each defensible for a different reason.
+
+Rather than pick one convention and force it to serve both purposes — which is exactly what produced your ₹1,300 problem — I'd report two clearly separated numbers, never let them share a label, and never sum the second one chain-wide:
+
+*A safe-to-sum number*, built only from unambiguous sources — every visit-sourced line item (always exactly one complaint, by the schema's own shape) plus any treatment-event line item linked to exactly one complaint. Anything jointly linked, like this cupping event, gets pulled *out* of the per-complaint breakdown entirely and shown on its own line — "Joint/Multi-Complaint Specialty Revenue: ₹500." Under this: Knee Rehab shows ₹300, Back Pain shows ₹0, Joint Specialty shows ₹500 separately, and 300 + 0 + 500 = 800 — reconciles exactly, always, because every rupee lands in precisely one bucket.
+
+*A full-touch number*, which is what produced your ₹1,300 — counting the full ₹500 toward every complaint it touched. This isn't wrong, it's answering a genuinely different, legitimate question: "how much clinical activity touched this complaint at all," useful for judging whether a specific complaint course is worth the resources going into it. It should just never appear next to a chain-wide total, and any report showing it needs to say plainly that it double-counts shared treatments on purpose.
+
+There's a middle option worth naming too — splitting the ₹500 evenly across however many complaints it touched (₹250 each here), which also reconciles exactly to ₹800 without excluding anyone. I'd lean toward exclude-and-report-separately over an even split, honestly, because a 50/50 split implies a precision about clinical weighting that doesn't actually exist — it looks more authoritative than it is. But if you'd rather every complaint's report show *some* credit for a shared treatment rather than a stark ₹0, the even split is a reasonable, defensible alternative — just be clear it's a convention, not a measurement.
+
+And this is exactly where question 1's `is_primary` flag earns its keep: if a therapist genuinely knows "this was mainly for the neck, the shoulder was incidental," marking one link `is_primary = true` gives the safe-to-sum number a cleaner default than either blunt option — attribute the full amount to whichever link is marked primary, and only fall back to exclude-or-split when nothing's marked. Not required to build now, but the two questions turn out to connect directly.
+
+**4. The mockups**
+
+Deciding the medium first, since you asked me to: ASCII, not HTML or Mermaid. HTML without any CSS — which you explicitly ruled out — mostly just renders as an undifferentiated block of default text; the thing that would actually make it useful for a mockup is exactly what you said to skip. Mermaid is built for flowcharts and relationship diagrams, not screen layouts — it could show *which screen leads to which*, but not what's actually on any of them, which is the part you want to compare. ASCII boxes in a monospace code block get you real layout — buttons, sections, states — at close to zero token cost, and it drops cleanly into a markdown file. One medium, used consistently throughout, rather than mixing.
+
+Building this as a file now, since a wall of ASCII art belongs in something you can scroll through and reference later, not buried mid-chat.Now I have both anchors needed.Twenty-two entries now. **Session Changelog**
+
+**Entry 11's XOR (Entry 19).** No change to the constraint itself — confirmed correct after direct challenge, with `is_primary` added as a new lever. Needs updating: `business-rules-log.md` §9.
+
+**Entry 10 completed (Entry 20).** A real gap in what I told you last time — the write-side fix didn't cover a read-side RLS visibility window. Needs updating: the Entry 10 subsection when written, plus `patients`' trigger set in `supabase_migration.md`.
+
+**Entry 14 resolved (Entry 21).** What was left as "your call" now has an actual recommendation — two separated numbers, never conflated. Needs updating: `business-rules-log.md` §9.
+
+**Entry 12 revised (Entry 22).** Approach D now preferred over Approach C — a better option proposed, not an error corrected. Full mockups in the new file. Needs updating: future `WORKFLOW.md`.
