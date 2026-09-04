@@ -794,3 +794,121 @@ Building this as a file now, since a wall of ASCII art belongs in something you 
 **Entry 14 resolved (Entry 21).** What was left as "your call" now has an actual recommendation — two separated numbers, never conflated. Needs updating: `business-rules-log.md` §9.
 
 **Entry 12 revised (Entry 22).** Approach D now preferred over Approach C — a better option proposed, not an error corrected. Full mockups in the new file. Needs updating: future `WORKFLOW.md`.
+
+# [02 Sep 2026] SPECIALTY-11 (UNREAD)
+> **[COMPACTED PROMPT]**
+> Address the meta-concern on design convergence (whether successive rounds of edge cases signify scope runaway or natural pre-implementation refinement before real database testing), and evaluate four sequential architectural questions plus a reporting decision directive building on SPECIALTY-06 through SPECIALTY-09: First, what exact application event triggers an `invoices` row insertion (purely an explicit "Create Invoice" click?), and under "Pay Later / Close without Payment", is the invoice generated immediately with `payment_status = 'Pending'` (locking line items and consuming an invoice number) or deferred until cash collection? Second, having dropped `complaint_course_id` from `invoice_line_items`, what database constraint prevents accidentally pulling the same `visit_id` into two separate invoices (e.g., is a unique index required on `visit_id`, and does it cover all double-billing edge cases)? Third, unlike `visits`' 4-column override audit pattern, `treatment_events` only carries `charged_amount_in_paise`—if a ₹500 cupping session is waived or discounted down to ₹200 or ₹0, where is baseline catalog price vs. overridden price stored, and should `treatment_events` replicate the 4 override columns? Fourth, regarding the 4 nullable FKs on `invoice_line_items` guarded by `num_nonnulls(...) = 1`, why is this multi-column approach superior to a normalized/polymorphic billable interface against column sprawl (e.g., adding medicines or retail products), and what is its extensibility ceiling? Finally, confirm and formalize the business decision that specialty treatments must be strictly excluded from complaint-course revenue aggregation (reporting them only via independent specialty service queries) to eliminate multi-complaint duplication and guarantee that complaint-level reports reconcile cleanly with total cash collected.
+
+## SPECIALTY-11 — Process check-in, invoicing gaps, revenue decision
+
+**On whether this is going wrong — since you asked me to address it first.**
+
+Short answer: no, I don't think this is spiraling, and I want to tell you precisely why rather than just reassuring you.
+
+Look at what's actually been happening, response by response. SPECIALTY-06 was asking "how should the whole session/invoice architecture be shaped." SPECIALTY-10 was asking "does this one specific nullable foreign key need a unique index." That's not the same size of question — the scope has been narrowing, not widening, even though it doesn't feel that way from the inside. A genuinely runaway design process keeps reopening the big "how should this whole thing work" question forever; what's actually happening here is that the big question got answered a while ago, and what's left is smaller and smaller mechanical detail underneath it. That's what convergence looks like from up close — it feels endless because each individual gap is real and needs real attention, even while the total remaining surface area is shrinking.
+
+Second thing worth naming directly: most of what's surfaced hasn't been "we got the design wrong" — it's been "you thought of something the real clinic actually needs" (retail products, pay later, split payments — every one of those traces back to something genuinely common for this kind of business, not something invented for its own sake) or "a concrete example got pushed through an abstract design and caught something abstract reasoning alone couldn't." Both of those are the *point* of doing this work now, before real patient data exists — this is meant to be the cheap moment to catch these things, and it's doing exactly that.
+
+The honest caveat, though: pure abstract review — no database, no real data, just thinking harder — genuinely has no natural stopping point. You can always find one more edge case by asking one more question. What actually converges this kind of process isn't more thinking, it's running real cases through a real database — which is precisely what your own `schema-study-plan-v2.md` already lays out in Modules 8a and 8b, and what the Verification Checklist at the bottom of `backend-schema-iterations.md` already says outright: "Everything above is paper review. None of it has been run against a real database yet." That's not something I'm inventing to reassure you — it's already sitting in your own project, written before this conversation even started, saying the same thing I'd say now: at some point, the next unit of value comes from building a first pass and testing it, not from one more round of brainstorm. I think you're close to that point for this domain, not past it and not far from it. I'd treat today's questions, plus the decision you're making below, as close to a natural closing point for the pure-design phase of specialty treatments specifically.
+
+Now the four questions, in order.
+
+**1. The exact invoice-creation trigger**
+
+Flagging this directly, since you asked me to point out overlap: this is answered in full in SPECIALTY-09, which you haven't read yet. Rather than point you there, here's the complete answer fresh, since it holds regardless of order.
+
+The only thing that creates an `invoices` row is an explicit "Create Invoice" click — never inferred, never automatic, never triggered by anything else happening in the system. This is also exactly the moment the deferred integrity trigger from SPECIALTY-08 would fire at commit — the row and its real, final line items get created together, or not at all.
+
+Under Pay Later: yes, the invoice is created immediately at checkout, `payment_status = 'Pending'`, a real sequential `invoice_number` consumed exactly as it would be for an immediate cash payment, and its line items locked in exactly the same way. This is worth being precise about, because it resolves the confusion cleanly: "Pending" describes whether *money has been collected*, not whether *the transaction happened*. The transaction — the actual billable work — already happened the moment "Create Invoice" was clicked; what's pending is purely the cash. Also worth knowing: checked directly against the real schema, `invoices.payment_status`'s `CHECK` constraint already allows `'Pending'` and `'Overdue'` today, unused — this needs zero schema change, only a change to what the app does with values already sitting there.
+
+**2. Double-billing prevention on `invoice_line_items`**
+
+Good, sharp question, and worth separating from the `complaint_course_id` removal you're citing — they're actually unrelated concerns. Removing `complaint_course_id` was about *attribution* (which complaint does this money belong to); double-billing is about *uniqueness* (has this billable thing already been charged once). Dropping the first column doesn't weaken the second at all — nothing currently guarantees uniqueness regardless of whether that column exists.
+
+You're right to ask whether a unique constraint exists — it doesn't yet, and it should. The clean fix:
+
+```sql
+alter table invoice_line_items
+  add constraint uq_line_item_visit            unique (visit_id),
+  add constraint uq_line_item_treatment_event  unique (treatment_event_id),
+  add constraint uq_line_item_package          unique (package_id),
+  add constraint uq_line_item_product_sale     unique (product_sale_id);
+```
+
+This works cleanly even though all four columns are nullable, because standard SQL treats `NULL` as never equal to another `NULL` for uniqueness purposes — a `UNIQUE (visit_id)` constraint lets unlimited rows sit at `NULL` (every treatment-event-sourced, package-sourced, or product-sourced line item has a null `visit_id`, and none of those collide with each other), while still guaranteeing any specific non-null `visit_id` appears at most once, ever, enforced by Postgres itself at write time — not something the application has to remember to check.
+
+**Does that catch every edge case? I don't think it fully does, and I want to walk through exactly where it breaks rather than overstate it.** A plain, permanent unique constraint means once a visit has ever appeared on any invoice, it can *never* be invoiced again — including if that original invoice was a genuine mistake that needs voiding and reissuing. Checked against the real schema, there's no `'Void'`/`'Cancelled'` state in `invoices.payment_status` today, so there's currently no way to correct a billing error without the visit becoming permanently unbillable. That's a real gap this question surfaced, not a hypothetical one.
+
+My first instinct was to fix this with a partial unique index, scoped to only live (non-void) invoices — but that doesn't actually work syntactically: a partial index's condition can only reference the table's *own* columns, and "is the parent invoice void" lives on a different table (`invoices`), which a partial index predicate can't reach into via a subquery. The correct mechanism is a trigger instead, which can do that cross-table check freely:
+
+```sql
+create or replace function prevent_double_invoicing()
+returns trigger as $$
+begin
+  if new.visit_id is not null and exists (
+    select 1 from invoice_line_items li
+    join invoices i on i.id = li.invoice_id
+    where li.visit_id = new.visit_id
+      and i.payment_status != 'Void'
+      and li.id is distinct from new.id
+  ) then
+    raise exception 'Visit % is already billed on a non-void invoice', new.visit_id;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+```
+
+(The same shape repeats for `treatment_event_id`, `package_id`, `product_sale_id`.) This needs `'Void'` added to `invoices.payment_status`'s allowed values first — which is itself worth having anyway, since the write-once philosophy already established for invoices needs *some* way to mark a mistaken one as superseded rather than editing it in place.
+
+**3. Should `treatment_events` get the same override pattern as `visits`?**
+
+Yes — and I want to own precisely why directly, because working through this shows a real gap in what I gave you in SPECIALTY-08, not just a nice-to-have addition. I described `treatment_events.charged_amount_in_paise` as "what it cost at the time it happened" — which is ambiguous on exactly the axis you're now pressing: does that mean the honest catalog price, or the actual amount the patient paid, possibly already discounted? I was conflating the two, which is the *exact* mistake the `visits` override design was built specifically to prevent — the whole reason `grand_total_in_paise` stays a pure, protected, computed value with `final_amount_in_paise` as a separate, nullable, override-only column is so nobody can look at a stored number later and be unable to tell whether it reflects standard pricing or a deliberate deviation.
+
+The fix is to mirror the `visits` pattern exactly:
+
+```sql
+alter table treatment_events
+  rename column charged_amount_in_paise to computed_amount_in_paise;
+
+alter table treatment_events
+  add column final_amount_in_paise integer,
+  add column override_reason       text,
+  add column override_by           uuid references profiles(id),
+  add column override_status       text not null default 'none'
+    check (override_status in ('none','pending','approved'));
+```
+
+`computed_amount_in_paise` stays the honest, catalog-derived baseline. Effective charge reads as `COALESCE(final_amount_in_paise, computed_amount_in_paise)` — same shape as `visits_with_effective_charge`, and this would want its own equivalent view, `treatment_events_with_effective_charge`, same `security_invoker = true` requirement, feeding into `invoice_line_items` exactly the way the visits view already does. The authorization mechanism (verify `auth.uid()` is actually an admin before allowing `'approved'`, derive `override_by` from `auth.uid()` rather than trusting client input) doesn't need reinventing either — it can reuse the exact same function already precedented in the real schema for a different pair of tables: `validate_owner_is_admin()` is already documented as "reused on both tables: same column name, same validation rule." A shared override-authorization function across `visits`, `treatment_events`, and eventually `packages`' refund columns follows the identical, already-established convention.
+
+**4. Is the nullable-column approach on `invoice_line_items` a dead end?**
+
+Taking this completely seriously rather than defending my own design reflexively. The real alternative you're gesturing at — a generic `source_type text` + `source_id uuid` pair instead of four separate typed columns — is a well-known pattern, and it has a well-known, serious cost: `source_id` can't be a real foreign key, because Postgres foreign keys point at exactly one table, always, and there's no way to declare "this points at whichever table `source_type` names." That means the database stops being able to guarantee `source_id` points at anything real at all — a typo'd or dangling reference gets silently accepted at write time, only surfacing later if something happens to join against it and finds nothing. Given how much of this entire schema is built specifically around the database enforcing correctness rather than trusting the application layer — and given `invoice_line_items` *just* got a whole deferred-constraint trigger built purely to guarantee financial correctness — trading that guarantee away for fewer columns would be a real regression in exactly the place this project has invested the most effort, not a neutral trade.
+
+Here's what actually deflates the urgency of the worry, though: two of your three named examples don't need a new column at all. Medicines and rehab belts aren't new *shapes* of billable thing — they're physical products, which is precisely what `product_sales`/`product_sale_items` was already built for in SPECIALTY-09 (also unread yet — that table was designed as a general "any physical item, any quantity" bucket from the start, not three specific named products). Adding a rehab belt to the catalog is a new *row*, not a new *column*. Vouchers are the one genuinely different case — a store-of-value that gets purchased separately from when it's redeemed — and that probably would earn its own column someday, but that's the correct response to a genuinely new financial *shape*, not evidence the pattern doesn't scale.
+
+Counting what's actually distinct: a clinical service tied to one complaint (visits), a clinical service that can span complaints (treatment_events), a prepaid session bundle (packages), a physical item sale (product_sales). Four real shapes. Vouchers would plausibly be a fifth. I don't think there are many more fundamentally distinct *shapes* a physio clinic would ever introduce — most new billable things extend an existing catalog rather than requiring a new column, and a nullable column is already categorized as a safe, low-risk migration in your own project's own migration-safety framework. I'd frame the real answer as: this scales fine specifically *because* new items are cheap and new shapes are rare, not despite it.
+
+**Your decision on specialty revenue — confirmed, and it resolves something I'd left open.**
+
+This lands squarely on Entry 21 from last time, which I'd left as a choice between excluding jointly-linked specialty revenue from per-complaint totals or splitting it evenly. You've made the call, cleanly: never apportion it to complaints at all, regardless of whether a treatment touches zero, one, or several — always its own separate, dedicated report.
+
+This costs nothing structurally — nothing in the schema changes. It's purely a rule about which query a report is allowed to draw from. Complaint-level revenue only ever sums visit-sourced line items, joined through `visits.complaint_course_id` — treatment-event-sourced line items are never part of that query, full stop. Specialty revenue gets its own report entirely, grouped by service (`treatment_events.service_id`), summing whatever `invoice_line_items` point at a `treatment_event_id` — completely independent of how many complaints or regions that event happened to be linked to for clinical record-keeping. That answers your own shallow-patient question directly: a service seeker's cupping session, with zero complaint links at all, is counted in exactly the same place as an active patient's cupping session that happens to touch three complaints — the specialty report, once, regardless. Checked against your own numbers: Knee Rehab (visit-only) reports ₹300, Back Pain (visit-only) reports ₹0, the specialty report shows ₹500 for cupping — 300 + 0 + 500 = 800, tallying exactly, always, by construction, because every rupee lives in exactly one of those three buckets and nothing ever lives in two.
+
+The `is_primary` flag from last time loses its revenue-apportionment justification under this rule, since nothing gets apportioned anymore — it's not useless, but whatever value it has now is purely clinical documentation ("this was mainly for the neck"), not billing.
+
+Now I have everything needed. First, updating Entry 21 to reflect the decision you just made — this one gets edited in place rather than superseded, since it's a genuine resolution, not a revised recommendation.Now updating the quick index count and appending entries 23–25 for today's remaining new content (Q2, Q3, Q4).Twenty-five entries now, one of them (21) genuinely closed rather than just added to.
+
+**Session Changelog**
+
+**Entry 21 — closed, not extended.** Your decision resolved it outright: specialty revenue never touches complaint-level totals, no exceptions. Status moved from OPEN to DECIDED, and it's now ready to fold into `business-rules-log.md` §9 as settled, not brainstorm.
+
+**Entry 1 (SPECIALTY-09's Pay Later answer) — repeated, not duplicated as new.** Your question 1 matched it exactly; flagged clearly rather than silently re-answered as if fresh.
+
+**New: double-billing prevention (Entry 23).** Four unique constraints proposed; found they're incomplete without a `'Void'` status and a trigger. Needs updating: `business-rules-log.md`, `supabase_migration.md`'s payment_status CHECK.
+
+**New: `treatment_events` override columns (Entry 24).** A real gap in my own SPECIALTY-08 design, corrected — same 4-column pattern as `visits`, reusing the existing shared authorization function. Needs updating: `handover-fee-computation.md`, `handover-pricing-integrity-overrides.md`.
+
+**New: column sprawl vs. polymorphic source (Entry 25).** Polymorphic rejected on FK-integrity grounds; two of your three examples turned out not to need new columns at all. Needs updating: `business-rules-log.md`.
+
+1
