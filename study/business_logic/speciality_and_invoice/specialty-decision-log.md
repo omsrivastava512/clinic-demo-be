@@ -40,6 +40,8 @@ Every entry that changes or corrects something names the exact section of `busin
 24. **CORRECTION** — `treatment_events.charged_amount_in_paise` conflated computed vs. actual price, the exact mistake `visits`' override design was built to prevent. Renamed to `computed_amount_in_paise`; the same 4-column override pattern as `visits` added.
 25. **OPEN** — Nullable-column sprawl on `invoice_line_items` evaluated against a polymorphic `source_type`/`source_id` alternative and rejected — that pattern can't carry a real foreign key. Two of three example "new billable types" (medicines, rehab belts) don't need new columns at all — they're already covered as `product_sales` catalog rows.
 26. **OPEN** — Session write-timing gap confirmed real, not resolved here: Entry 15's session_id mechanism was built on top of `FRONTEND_WORKFLOW.md`'s already-unresolved Decision 2 without ever pinning it down. Handed off to a dedicated follow-up chat.
+27. **OPEN** — Visit vs. `treatment_events` boundary rule sharpened, not resolved: traction can legitimately go either way (bundled visit service or standalone), breaking any simple per-service rule. Handed off alongside Entry 26.
+28. **OPEN** — Session/invoice timing deepened with an actual mockup walkthrough and a real operational case for defaulting to Pending. Same handoff as Entry 26.
 
 ---
 
@@ -252,3 +254,19 @@ Every entry that changes or corrects something names the exact section of `busin
 - **New position:** Confirmed as a real gap, not a misunderstanding — it traces directly to `FRONTEND_WORKFLOW.md`'s own Decision 2 (progressive vs. coordinated writes), already flagged open before this chat existed, which Entry 15 quietly built on top of without resolving. If writes are progressive (a visit row created the moment a procedure is checked off), an interrupted checkout leaves real orphaned rows behind — worse than an empty session, since a `visits` row existing is supposed to mean "this happened, complete." If writes are coordinated (nothing hits the database until one final atomic submission, matching everything else already decided — the deferred constraint trigger, write-once invoices, no-draft Pay Later), there's no window for an orphan to exist at all. Leaning coordinated, and noting the live "Current Session Bill" panel almost certainly doesn't need backend writes to update — but not resolved here. Deferred to a dedicated follow-up chat; two handoff prompts given to Om for this and for the broader frontend↔backend communication question.
 - **Status:** OPEN
 - **Where it lands:** Not yet — pending the follow-up chat's resolution. Will need `business-rules-log.md` §5/§9 and `handover-index.md`'s standing note once settled.
+
+### 27. Visit vs. `treatment_events` boundary rule — sharpened, not resolved
+
+- **Source:** SPECIALTY-13
+- **Old position:** The visit/`treatment_events` split (Entry 2 onward) was proposed without ever specifying a rule for which table a given service instance belongs in.
+- **New position:** Sharpened with a concrete counter-example that breaks any simple per-service rule. Traction can legitimately be delivered as an ordinary bundled `visit_services` entry (clinician-prescribed, part of a normal visit, no extra charge) OR as a standalone `treatment_events` entry (externally prescribed, no complaint course, its own individual fee) — same catalog service, two different homes depending on instance context, not a fixed property of the service itself. Also directly questioned: whether `visits.complaint_course_id` being `NOT NULL` is even the right premise to begin with. Not resolved here — handed to the same follow-up chat as Entry 26, via a dedicated prompt.
+- **Status:** OPEN
+- **Where it lands:** `business-rules-log.md` §9, once resolved.
+
+### 28. Session/invoice creation timing — deepened with the mockup walkthrough
+
+- **Source:** SPECIALTY-13
+- **Old position:** Entry 26 flagged this as unresolved, tracing to `FRONTEND_WORKFLOW.md`'s Decision 2, leaning toward coordinated writes without confirming.
+- **New position:** Om independently walked the actual mockup sequence (Complaint Selector → Procedure Logger → Create Invoice → Invoice screen → Confirm Payment) and arrived at the same open question from a different angle, plus a genuinely useful addition: a concrete operational justification for defaulting a new invoice to Pending — a receptionist shouldn't have to wait for a patient to count cash before moving to the next patient, should be able to close the invoice screen at Pending and reconcile later. Still not resolved — folded into the same follow-up prompt as Entry 26.
+- **Status:** OPEN
+- **Where it lands:** Same as Entry 26.
