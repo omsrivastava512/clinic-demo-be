@@ -270,3 +270,309 @@ Every entry that changes or corrects something names the exact section of `busin
 - **New position:** Om independently walked the actual mockup sequence (Complaint Selector → Procedure Logger → Create Invoice → Invoice screen → Confirm Payment) and arrived at the same open question from a different angle, plus a genuinely useful addition: a concrete operational justification for defaulting a new invoice to Pending — a receptionist shouldn't have to wait for a patient to count cash before moving to the next patient, should be able to close the invoice screen at Pending and reconcile later. Still not resolved — folded into the same follow-up prompt as Entry 26.
 - **Status:** OPEN
 - **Where it lands:** Same as Entry 26.
+
+
+---
+
+# [03 Sep 2026] SPECIALTY-01
+
+> **[COMPACTED PROMPT]**
+> Migrating from a prior chat; resolve three interrelated open problems in order, with full rigor. First, pin down exactly WHEN visits/treatment_events/sessions/invoices should actually be written relative to the Daily Ledger → Complaint Selector → Procedure Logger → Create Invoice flow, and design or reject a session_id assignment mechanism that can't leave orphaned rows behind on an abandoned checkout — Entry 15 assumed progressive writes across the checkout without ever resolving that against the still-open "coordinated vs. progressive" write-timing question already logged in module_2_logs.md. Confirm whether the live "Current Session Bill" panel in Procedure Logger actually requires backend writes before a final commit, or is pure frontend state. Second, stress-test the visit/treatment_events split: is `visits.complaint_course_id NOT NULL` actually correct, or worth challenging? What mechanism decides whether a given service instance becomes a `visit_services` row (bundled under a complaint-tied visit) versus a `treatment_events` row (standalone) — is it a property of the service itself, or a case-by-case call? Test explicitly against traction, which can legitimately go either way: ordinarily bundled into a complaint-tied visit with no extra charge, or delivered fully standalone with no complaint course at all, on an external prescription. Third, work through the actual mockup sequence (Complaint Selector → Procedure Logger, ending in "Create Invoice" → a separate Invoice screen → "Confirm Payment") and pin down exactly which click fires which backend write: does "Create Invoice" really submit the session/visit data AND create the invoice in one coupled action? Is it the visit or the session that's being marked complete when that fires? Confirm or correct the reasoning that a Pending-by-default invoice — closable without ever clicking "Confirm Payment," so a receptionist isn't stuck waiting on a patient to count out cash — is correct behavior, not a bug.
+
+**Editorial note, added 2026-09-03, same day:** an earlier draft in this session mislabeled this content as "SPECIALTY-12," continuing an invented cross-chat sequence number, and independently reworded it rather than archiving what was actually said. That draft is discarded, not reconciled. What follows is the real response, under its real label. Going forward, log entries are attributed to their own chat's native SPECIALTY-NN label plus the calendar date — never an invented cross-chat counter. See SPECIALTY-02 below for the fuller explanation.
+
+## SPECIALTY-01 — Session timing, visit split, invoice flow
+
+Quick housekeeping before the substance: FRONTEND_WORKFLOW.md isn't actually in what I have access to — not among the project files, not in this upload. What I do have that covers the same ground: module_2_logs.md's "OPEN QUESTIONS" section states almost exactly the same open "coordinated vs. progressive write" question, and schema_reconciliation_audit.md has real file/line citations on how the current mock frontend actually behaves (ProcedureLogger, InvoiceBuilder, FooterActions.tsx). Also confirmed: README.md in this project's files IS business-rules-log.md — same document, different filename in this project's listing.
+
+**1. Session write-timing — resolved, Entry 15 superseded.**
+
+Mapped the flow first: Daily Ledger reads a view, no writes. Complaint Selector is patient/complaint search and selection held in frontend state, no writes, including for a brand-new complaint. Procedure Logger accumulates an in-memory InvoiceItem[] — confirmed behavior, not inferred: useProcedureLogger.tsx (lines 39–46) already builds this array client-side, and validateInvoiceItems (lines 11–16) already filters that same array. The "Current Session Bill" panel is a live sum over that array — no backend writes needed to render it. Create Invoice is the only click that touches the database at all under the resolved design.
+
+Four signals converge on coordinated writes over progressive: module_2_logs.md's own logged lean ("strongest available signal... points toward one coordinated write"); the current mock frontend is already shaped this way (accumulate, submit once); the real schema's own comment on visits — "MVP WORKFLOW: Row existing = session complete + paid. No status lifecycle" — which progressive writes would quietly violate (a visit could exist with no invoice for an indefinite stretch); and orphan-avoidance is free under one transaction (full commit or full rollback, a Postgres guarantee) versus requiring real cleanup machinery under progressive writes (nothing today defines what happens to a logged-but-never-invoiced visit).
+
+Entry 15's mechanism (frontend omits session_id on first insert, a trigger creates and returns it, frontend echoes it on later inserts) solved a cross-request coordination problem that stops existing once there's only one request. Rejected, not refined — superseded by a single SECURITY DEFINER function, checkout_and_create_invoice(...), called once from "Create Invoice," doing all of the following inside one implicit transaction: compute the total (pass 1, from the payload — in production, recomputed server-side from rate tables, not trusted from the client, per the "never trust a client total" principle in business-rules-log.md §7) → insert sessions → insert invoices (total known, process_new_invoice() fires and mints the real number, untouched) → per visit: insert complaint_courses if new (in order, before the dependent visit, inside the same function — so the complaint-before-visit ordering rule is satisfied by statement order, not by trusting an earlier separate frontend call), insert visits, insert its invoice_line_items row → per treatment event: insert treatment_events, insert its treatment_event_links, insert its invoice_line_items row. session_id is a local plpgsql variable throughout — never sent by, or returned to, the client as something it needs to track.
+
+```sql
+create table sessions (
+  id         uuid primary key default gen_random_uuid(),
+  patient_id uuid not null references patients(id) on delete cascade,
+  clinic_id  uuid not null references clinics(id),
+  created_by uuid references profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create index idx_sessions_patient_id on sessions(patient_id);
+create index idx_sessions_clinic_id  on sessions(clinic_id);
+
+create or replace function checkout_and_create_invoice(
+  p_clinic_id         uuid,
+  p_patient_id        uuid,
+  p_visits            jsonb,
+  p_treatment_events  jsonb,
+  p_payment_status    text default 'Pending'
+)
+returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  v_session_id     uuid;
+  v_invoice_id     uuid;
+  v_visit_id       uuid;
+  v_te_id          uuid;
+  v_complaint_id   uuid;
+  v_total_in_paise integer := 0;
+  visit_rec        jsonb;
+  te_rec           jsonb;
+  link_rec         jsonb;
+begin
+  select coalesce(sum((v->>'consultation_fee_in_paise')::integer
+                     + (v->>'services_total_in_paise')::integer), 0)
+    into v_total_in_paise
+  from jsonb_array_elements(p_visits) v;
+
+  v_total_in_paise := v_total_in_paise + coalesce((
+    select sum((t->>'computed_amount_in_paise')::integer)
+    from jsonb_array_elements(p_treatment_events) t
+  ), 0);
+
+  insert into sessions (patient_id, clinic_id, created_by)
+  values (p_patient_id, p_clinic_id, auth.uid())
+  returning id into v_session_id;
+
+  insert into invoices (clinic_id, patient_id, amount_in_paise, date, payment_status, created_by)
+  values (p_clinic_id, p_patient_id, v_total_in_paise, current_date, p_payment_status, auth.uid())
+  returning id into v_invoice_id;
+
+  for visit_rec in select * from jsonb_array_elements(p_visits)
+  loop
+    if visit_rec ? 'new_complaint' then
+      insert into complaint_courses (clinic_id, patient_id, complaint_name,
+                                      complaint_catalog_id, start_date, last_date)
+      values (p_clinic_id, p_patient_id,
+              visit_rec->'new_complaint'->>'complaint_name',
+              visit_rec->'new_complaint'->>'complaint_catalog_id',
+              current_date, current_date)
+      returning id into v_complaint_id;
+    else
+      v_complaint_id := (visit_rec->>'complaint_course_id')::uuid;
+    end if;
+
+    insert into visits (clinic_id, patient_id, complaint_course_id, session_id,
+                         date, complaint, visit_type, consultation_type,
+                         consultation_fee_in_paise, services_total_in_paise,
+                         clinician_id, created_by)
+    values (p_clinic_id, p_patient_id, v_complaint_id, v_session_id,
+            current_date, visit_rec->>'complaint_name',
+            visit_rec->>'visit_type', visit_rec->>'consultation_type',
+            (visit_rec->>'consultation_fee_in_paise')::integer,
+            (visit_rec->>'services_total_in_paise')::integer,
+            (visit_rec->>'clinician_id')::uuid, auth.uid())
+    returning id into v_visit_id;
+
+    -- visit_services rows insert here, same shape, per visit_rec->'services'.
+
+    insert into invoice_line_items (invoice_id, visit_id, amount_in_paise)
+    values (v_invoice_id, v_visit_id,
+            (visit_rec->>'consultation_fee_in_paise')::integer
+          + (visit_rec->>'services_total_in_paise')::integer);
+  end loop;
+
+  for te_rec in select * from jsonb_array_elements(p_treatment_events)
+  loop
+    insert into treatment_events (clinic_id, patient_id, session_id, service_id,
+                                   computed_amount_in_paise, clinician_id, date, created_by)
+    values (p_clinic_id, p_patient_id, v_session_id, te_rec->>'service_id',
+            (te_rec->>'computed_amount_in_paise')::integer,
+            (te_rec->>'clinician_id')::uuid, current_date, auth.uid())
+    returning id into v_te_id;
+
+    for link_rec in select * from jsonb_array_elements(te_rec->'links')
+    loop
+      insert into treatment_event_links (treatment_event_id, complaint_course_id, catalog_region)
+      values (v_te_id, (link_rec->>'complaint_course_id')::uuid, link_rec->>'catalog_region');
+    end loop;
+
+    insert into invoice_line_items (invoice_id, treatment_event_id, amount_in_paise)
+    values (v_invoice_id, v_te_id, (te_rec->>'computed_amount_in_paise')::integer);
+  end loop;
+
+  return v_invoice_id;
+end;
+$$;
+```
+
+This doesn't bypass any existing trigger — every insert here still fires whatever BEFORE INSERT guard already exists on that table (validate_visit_clinic_id(), process_new_complaint_course()'s cross-chain check, etc.), inherited for free because this is orchestration around ordinary inserts, not a bypass. session_id on visits/treatment_events proposed NOT NULL — safe to add directly given this project's actual current state (pre-integration, no real visit rows yet); would need a nullable-then-backfill path if added later, per the migration-safety framework in schema-study-plan-v2.md Module 9. A validating trigger confirming session_id belongs to the same patient+clinic is optional defense-in-depth, not load-bearing, given the single-function design already makes a mismatch structurally hard to produce. This also resolves frontend-schema-audit-handover.md's Complaint Selector finding (#4) as a side effect — its suggested fix (an explicit early write before advancing the stepper) is unnecessary once complaint-course creation is just the first loop iteration inside the same coordinated function. Left open: p_clinic_id derivation (staff-derived from auth.uid() vs. validated as given) is the already-logged open question in module_2_logs.md; not resolved here, but this function will eventually need an answer. Patient registration itself stays separate and earlier (SPECIALTY-10's patients_provision_initial_access), not folded into this commit.
+
+**2. Visit/treatment_events routing — traction stress-tested, split holds.**
+
+visits.complaint_course_id NOT NULL reaffirmed as correct, not just accepted. A visit's fee (exam fee, per-complaint therapy rate, tier, gap-return penalty, per README.md §2) is structurally complaint-scoped — there's no version of grand_total_in_paise that doesn't trace back to which complaint it's treating. Making it nullable wouldn't simplify anything; it would rebuild treatment_events' job — a bare-region link, no tier to reference — a second time, badly, inside visits.
+
+Two independent axes decide routing, combined with OR: Axis 1 (instance-level) — does this logging pass have a complaint course to attach to right now? Axis 2 (catalog-level) — is this service a designated always-separate carve-out (dry needling/cupping/laser per README.md §2, exact list still pending Om)? A service instance lands in visit_services only when axis 1 is true AND axis 2 is false. Everything else — no complaint context, or a carve-out regardless of context — lands in treatment_events.
+
+| | Has complaint context | No complaint context |
+|---|---|---|
+| **Ordinary service** | visit_services | treatment_events, bare catalog_region |
+| **Named carve-out** | treatment_events, real complaint_course_id | treatment_events, bare catalog_region |
+
+Tested against traction in three configurations: ordinary bundled (complaint context true, not a carve-out) → visit_services, matching the framing exactly. Standalone externally-prescribed (no complaint context) → treatment_events via bare region, axis 2 irrelevant once axis 1 fails. A patient with an active complaint that this traction isn't for (an unrelated external prescription landing on the same day as a real complaint-tied session) → still treatment_events, because axis 1 is about the logging context ("is this instance happening inside the visit for the complaint it's actually treating"), not a blanket "does this patient have any complaint on file" lookup — the case that would break a sloppier version of the rule. All three resolve correctly under one rule; the split doesn't need rethinking, it needed the rule written down.
+
+```sql
+alter table services
+  add column is_specialty_carveout boolean not null default false;
+```
+
+Designed, not built. Considered and set aside: making this per-clinic (no evidence classification varies by clinic, and it would violate "no configuration UI for the MVP," README.md §6); leaving it as pure UI-section judgment with no backend flag (rejected — same "frontend responsible for correctness, backend never verifies" pattern already flagged as a real gap in module_2_logs.md's REAL BUGS/GAPS section).
+
+**3. Invoice/session/payment click-mapping — resolved together with (1).**
+
+"Create Invoice" is confirmed as the single action creating the session, every visit, every treatment event, the invoice, and its line items, all together — a direct consequence of (1)'s resolution, not an independent choice, since the deferred line-item-integrity trigger (SPECIALTY-08) requires every invoice to already have real line items at commit, which forces visits/treatment_events into the same atomic operation as the invoice they're billed on.
+
+The visit-vs-session "which one gets marked complete" question is a false dichotomy under this model: a visits row can't exist without its parent sessions row (session_id NOT NULL, set inside the same function call), so they complete atomically, together, always. One sentence for what the button does: "Create Invoice" closes out the session, and every visit inside it is complete as a structural consequence of the session existing.
+
+Pending-by-default confirmed as correct — and structurally required, not just convenient. If "Create Invoice" didn't actually commit right then, the button's own label would be dishonest, and a receptionist pulled away before "Confirm Payment" would believe they'd already created the invoice when nothing had actually been saved — recreating (1)'s orphaning problem, one screen later, while actively misleading about it. Pending is the state that makes the label honest. This adds no friction to the common case: Create Invoice and Confirm Payment happen back-to-back for an immediate-cash patient; Pay Later is the same mechanism with the second click simply deferred, not a separate path.
+
+**Superseded 2026-09-03 (see SPECIALTY-02, Entry 31):** the confirm_invoice_payment() function shown originally here took three separate cash/online/card amount parameters. That design is walked back for MVP in favor of a single payment_mode parameter — see below.
+
+```sql
+-- ORIGINAL (superseded) — shown for the record, not the version to build
+create or replace function confirm_invoice_payment(
+  p_invoice_id             uuid,
+  p_cash_amount_in_paise   integer default 0,
+  p_online_amount_in_paise integer default 0,
+  p_card_amount_in_paise   integer default 0
+)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  update invoices
+  set payment_status         = 'Paid',
+      cash_amount_in_paise   = p_cash_amount_in_paise,
+      online_amount_in_paise = p_online_amount_in_paise,
+      card_amount_in_paise   = p_card_amount_in_paise,
+      payment_mode = case
+        when p_cash_amount_in_paise > 0 and p_online_amount_in_paise = 0 and p_card_amount_in_paise = 0 then 'CASH'
+        when p_online_amount_in_paise > 0 and p_cash_amount_in_paise = 0 and p_card_amount_in_paise = 0 then 'UPI'
+        when p_card_amount_in_paise > 0 and p_cash_amount_in_paise = 0 and p_online_amount_in_paise = 0 then 'CARD'
+        else 'HYBRID'
+      end,
+      paid_by = auth.uid(),
+      paid_at = now()
+  where id = p_invoice_id;
+end;
+$$;
+```
+
+One UPDATE, everything set together, so chk_payment_breakdown_matches_total was satisfied atomically. payment_mode derived, never trusted from the client. This resolved two existing audit findings with concrete targets: schema_reconciliation_audit.md's InvoiceBuilder placeholder-invoice_number finding (the real mutation response is checkout_and_create_invoice() returning the id process_new_invoice() minted, arriving at Create Invoice, not Confirm Payment), and its FooterActions.tsx finding (Confirm Payment's onConfirm should call confirm_invoice_payment(...) directly, more specific than the audit's own vaguer suggested fix).
+
+**Session Changelog**
+
+**New: session write-timing (Entry 26).** Entry 15's client-echo trigger mechanism superseded by a single coordinated SECURITY DEFINER function, closing the orphaned-row risk structurally rather than procedurally. Needs updating: supabase_migration.md, resolves module_2_logs.md's open coordinated-vs-progressive question.
+
+**New: visit/treatment_events routing rule (Entry 27).** Two-axis rule (instance complaint-context × catalog carve-out classification) written down for the first time and stress-tested against traction going both ways. complaint_course_id NOT NULL reaffirmed. services.is_specialty_carveout proposed. Needs updating: business-rules-log.md (README.md), supabase_migration.md.
+
+**New: invoice/session/payment click-mapping (Entry 28).** Extends, doesn't contradict, SPECIALTY-11 Q1 — the same click resolved to also cover session/visits/treatment_events, and the visit-vs-session confusion resolved as a false dichotomy under the coordinated model. Needs updating: business-rules-log.md / future WORKFLOW.md.
+
+---
+
+# [03 Sep 2026] SPECIALTY-02
+
+> **[COMPACTED PROMPT]**
+> Multiple follow-ups, addressed one at a time. (1) Why was SPECIALTY-12 created as a separately-numbered, reworded duplicate of SPECIALTY-01, and going forward, which version is the source of truth, and who maintains the log across chats vs. within a chat? (2) Pushback on making invoices.patient_id nullable for anonymous retail sales with no fallback — even a non-patient buyer needs some identifying contact captured, for receipt/dispute purposes. (3) Direct challenge: the "override_status='pending' vs payment_status='Pending' naming collision" flag — what confusion, exactly, to whom, in what scope? (4) Clarify the Overdue-derivation recommendation precisely — is the CHECK value being removed, or just never automated? Where should the derivation actually live — frontend or backend — and does a strict "pending today, overdue starting tomorrow" rule hold up given hybrid/split payments are rare and no per-mode reporting UI is planned for MVP? (5) Pushback on the three-column cash/online/card payment breakdown — hybrid payments are rare, no reporting/filter UI is planned for MVP, the frontend doesn't capture this data yet either; should this be simplified to a single payment_mode value instead, deferring the structured breakdown entirely? (6) Draft a project custom instruction that tags every brainstormed option/approach with an MVP-scope classification (necessary vs. deferrable-with-a-cheap-backend-hook vs. defer-the-whole-module), referencing a separate prompt already added to the project explaining the underlying MVP-stripping motive. (7) Every log entry, not just session headers, should carry an explicit date, so multiple accumulating/conflicting log files across chats can be resolved by recency.
+
+## SPECIALTY-02 — Fixing the log, MVP scoping decisions
+
+**1. The SPECIALTY-01/12 mix-up.** A previous draft this session invented a cross-chat sequence number ("SPECIALTY-12") and independently reworded SPECIALTY-01's conclusions under it, rather than archiving what was actually said. Discarded outright, not reconciled. Fix, permanent: log entries are attributed to their own chat's native response label (which resets to 01 per chat, a fixed system rule) plus the real calendar date — never an invented cross-chat counter. The chat response is always the source of truth; the log's job is to preserve it under its real label, not generate a differently-worded twin. Maintenance split: within a chat, updates happen proactively as decisions land; across chats, there is no persistent reach — the user carries the canonical file forward by re-uploading it into each new chat, and the log gets appended to, correctly labeled and dated, at natural checkpoints.
+
+**2. Anonymous retail sales need a captured contact, not a patient row.** invoices.patient_id nullable (SPECIALTY-09 Q2) was correct, but nullable-with-no-fallback was a real gap, not a style choice — a receipt identifying nobody is a genuine business risk. Fix is schema-level, not "create a patients row for a one-time buyer" (which would pollute a clinical table and require special-casing patient_clinic_access/RLS for someone with no clinical relationship at all):
+
+```sql
+alter table invoices
+  add column walk_in_contact text;
+
+alter table invoices
+  add constraint chk_invoice_has_identity
+  check (patient_id is not null or walk_in_contact is not null);
+```
+
+Every invoice needs either a real patient link or a captured contact string, never neither. Designed, not built.
+
+**3. The "Pending" naming collision, scoped precisely by role.** To the person writing SQL: no confusion — different columns, different tables, no technical ambiguity. To a developer/DBA debugging a vaguely-worded bug report: a real but minor risk (a five-minute misdirection, not a data problem). To a future UI, only if a dashboard ever merges both concepts under one undifferentiated badge — not built yet, so a forward-looking flag, not a current issue. To the patient: not applicable. Classification unchanged: worth knowing, not worth architecting around.
+
+**4. Overdue — clarified and derived as a view.** Correction to prior phrasing: the CHECK constraint's 'Overdue' value isn't being removed; what's being avoided is any automated process (cron, trigger) writing it into payment_status. The column itself only ever holds 'Paid' or 'Pending' in practice; 'Overdue' is computed fresh at read time, in one place, so every consumer (frontend, dashboard, future reports) reads the same derived label instead of reimplementing the day-math independently.
+
+```sql
+create or replace view invoices_with_effective_status
+with (security_invoker = true) as
+select
+  i.*,
+  case
+    when i.payment_status = 'Pending' and i.date < current_date then 'Overdue'
+    else i.payment_status
+  end as effective_status
+from invoices i;
+```
+
+The stated one-day rule (pending today, overdue starting tomorrow) maps directly onto `i.date < current_date` — no adjustment needed. Flagged, not resolved: this sits in tension with the already-logged "settles weekly" Pay Later pattern — a strict one-day threshold means routine weekly-settling patients show Overdue for most of the week as a matter of course. That may be intentional (a soft flag, no judgment implied) or may argue for a longer threshold matching actual expected settlement rhythm. Threshold value is an explicit open business decision, not resolved here — the mechanism is identical regardless of the number chosen.
+
+**5. Payment-mode breakdown simplified for MVP — agreed, with independent justification.** The three-column design (SPECIALTY-09 Q4) was justified specifically by cash-drawer reconciliation reporting; that use case is now explicitly not wanted for MVP (no filter UI, hybrid payments rare, frontend doesn't capture per-mode amounts anywhere). Beyond simple deference: building the three columns now, with nothing in the frontend able to populate them correctly, would let a genuine hybrid payment silently record as `payment_mode='HYBRID'` with all three amount columns defaulted to zero — false precision, worse than not having the columns. Revised for MVP:
+
+```sql
+alter table invoices
+  add constraint chk_payment_mode
+  check (payment_mode is null or payment_mode in ('CASH', 'UPI', 'CARD', 'HYBRID'));
+
+create or replace function confirm_invoice_payment(
+  p_invoice_id   uuid,
+  p_payment_mode text
+)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  update invoices
+  set payment_status = 'Paid',
+      payment_mode   = p_payment_mode,
+      paid_by        = auth.uid(),
+      paid_at        = now()
+  where id = p_invoice_id;
+end;
+$$;
+```
+
+This supersedes the three-parameter confirm_invoice_payment() shown in SPECIALTY-01 above. Trade-off named explicitly and accepted deliberately: any invoice recorded as 'HYBRID' during this simpler era has no recoverable cash/online/card split later. Given the stated rarity, a reasonable trade, not an oversight. The three-column upgrade remains exactly as cheap to add later as it would be now if reconciliation reporting ever becomes real post-MVP.
+
+**6. MVP-scope tagging instruction, drafted.** The referenced project file explaining the MVP-stripping motive wasn't found in /mnt/project/ (only the same 8 files already on hand) — drafted from context given directly in this session instead. Extends the existing 🔴/🟡/🟢 severity convention rather than replacing it, adding the "does this need to exist at all right now" axis that severity alone doesn't answer:
+
+> **MVP-scope tagging for brainstormed options** — whenever multiple approaches are being compared, tag each with: (1) MVP necessity — Required for MVP / Backend hook now, frontend deferred / Whole module deferred / Post-MVP nice-to-have; (2) Severity — 🔴 Structural / 🟡 Safety-net / 🟢 Performance (existing convention, reused); (3) Blast radius if deferred — one sentence on retrofit cost, or "none — purely additive." Attached to each option as presented, not summarized afterward.
+
+**7. Dating every entry.** Confirmed and adopted — the actual fix for cross-chat/cross-file disambiguation that the invented counter in thread 1 was a flawed attempt at solving. Session headers keep their existing human-readable date format; every individual numbered entry's Source line now carries an explicit ISO date going forward. The 25 original entries could be backfilled from their session headers if ever wanted; not urgent.
+
+**New entries this session**
+
+**Entry 29 — Anonymous retail sale still needs a contact record**
+- **Source:** 2026-09-03, SPECIALTY-02.
+- **Old position:** SPECIALTY-09 Q2 recommended invoices.patient_id nullable for anonymous retail, with no fallback requiring any identifying info.
+- **New position:** nullable is correct, but needs a fallback — invoices.walk_in_contact text, with CHECK (patient_id IS NOT NULL OR walk_in_contact IS NOT NULL). No patients row created for one-time non-clinical buyers.
+- **Status:** designed, not built.
+- **Where it lands:** supabase_migration.md, alongside the product_sales design from SPECIALTY-09 Q2.
+
+**Entry 30 — Overdue is a derived label, computed in one view**
+- **Source:** 2026-09-03, SPECIALTY-02.
+- **Old position:** SPECIALTY-09 Q3 said Overdue "can be a read-time computation" without specifying where, or giving a concrete threshold.
+- **New position:** a security_invoker view (invoices_with_effective_status), payment_status itself never written as 'Overdue' by any automated process. One-day threshold (`date < current_date`) matches the stated rule exactly; flagged tension with the "settles weekly" pattern — actual threshold value left as an explicit open business decision.
+- **Status:** designed, not built.
+- **Where it lands:** supabase_migration.md (view), business-rules-log.md (threshold value, once decided).
+
+**Entry 31 — Payment-mode breakdown simplified for MVP**
+- **Source:** 2026-09-03, SPECIALTY-02.
+- **Old position:** SPECIALTY-09 Q4 recommended three dedicated amount columns (cash/online/card) with a sum-matching CHECK, for cash-drawer reconciliation reporting.
+- **New position:** walked back — the reporting use case is explicitly not wanted for MVP, and the frontend can't populate a structured breakdown yet, meaning the columns would silently default to zero on real hybrid payments (false precision, worse than absence). Single payment_mode text column with a CHECK allowing 'HYBRID' as a value, no breakdown. confirm_invoice_payment() simplified to one parameter, superseding the version shown in SPECIALTY-01. Trade-off named and accepted: historical HYBRID invoices during this era have no recoverable split.
+- **Status:** revises SPECIALTY-09 Q4; not built either way yet.
+- **Where it lands:** supabase_migration.md, business-rules-log.md.
+
+Thirty-one entries now.
