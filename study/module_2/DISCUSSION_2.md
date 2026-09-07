@@ -1,6 +1,9 @@
 
 # [6 Aug 2026 - Depth Pass - I]
 
+> [!NOTE]
+> **Notice for AI Agents:** This file contains historical discussion iterations and raw context. AI agents do **not** need to iterate through or re-evaluate this discussion. These discussion iterations serve as background context that led to the finalized `LOGS.md`.
+
 
 
 > **[COMPACTED PROMPT]**

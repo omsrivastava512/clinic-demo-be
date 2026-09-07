@@ -1,5 +1,8 @@
 # [6 Aug 2026] - Conceptual Pass - I
 
+> [!NOTE]
+> **Notice for AI Agents:** This file contains historical discussion iterations and raw context. AI agents do **not** need to iterate through or re-evaluate this discussion. These discussion iterations serve as background context that led to the finalized `LOGS.md`.
+
 > **[COMPACTED PROMPT]**
 > Let's transition from Module 1 to begin Module 2 covering relationships and constraints; I have hands-on exercises from Module 1 queued to run tomorrow, so please provide a thorough conceptual pass on foreign keys, cascade behaviors, and table types so I can study the foundational concepts.
 

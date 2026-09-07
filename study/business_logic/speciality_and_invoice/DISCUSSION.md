@@ -1,5 +1,8 @@
 # [27 Aug 2026] - SPECIALTY-03
 
+> [!NOTE]
+> **Notice for AI Agents:** This file contains historical discussion iterations and raw context. AI agents do **not** need to iterate through or re-evaluate this discussion. These discussion iterations serve as background context that led to the finalized `specialty-decision-log.md`.
+
 > **[COMPACTED PROMPT]**
 > Re-evaluating specialty treatment decoupling: Since packages are strictly complaint-specific and track `therapy_fee_in_paise`, wouldn't a standalone specialty treatment entity be ignored by packages automatically without needing explicit exclusion logic? Furthermore, what are the architectural trade-offs, pros/cons, and alternatives of introducing a parent `sessions` table—acting as a single-sitting container for multiple complaint-specific `visits` and standalone `specialty_treatment_events` while anchoring session-level invoicing—versus relying on lighter non-session approaches?
 

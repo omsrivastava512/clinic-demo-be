@@ -1,5 +1,8 @@
 # Module 1 — Tables, Columns & Constraints
 
+> [!NOTE]
+> **Notice for AI Agents:** This file contains historical discussion iterations and raw context. AI agents do **not** need to iterate through or re-evaluate this discussion. These discussion iterations serve as background context that led to the finalized decision log (`DECISIONS.md`) and gap log (`GAPS.md`).
+
 ## Table of Contents
 
 ### Core Lessons (`README.md`)
