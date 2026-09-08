@@ -1,6 +1,16 @@
 # MVP Scope & Architecture Diagnosis
 ### A rigorous boundary for the clinic management system — what ships now, what waits, and why
 
+
+> **[COMPACTED PROMPT]**
+> <details>
+> <summary><b>Click to view the Compacted Scoping Prompt</b></summary>
+> Evaluate and diagnose the physiotherapy clinic management system scope for a solo-developer real-world deployment, establishing the absolute minimum trustworthy MVP while explicitly decoupling schema, backend/business logic, and frontend UI timing. First, regarding **Domain Complexity & Root-Cause Diagnosis**—analyze why the project expanded during schema design, distinguishing genuine business domain complexity from unnecessary premature design. Second, regarding **True MVP Boundary & Business Workflows**—define the minimal operational boundary required for clinic trust, prioritizing core financial and data integrity invariants (pricing, consultation fees, therapy categories, waivers/discounts, package/payment tallies) over convenience features. Third, regarding **Requirement & Architectural Classification**—for each core requirement, evaluate: `Requirement → business purpose/invariant → MVP necessity → dependencies → minimum implementation → deferral strategy` (categorized strictly as: *implement now*, *model schema now but defer UI/backend*, *partial backend now*, or *defer concept entirely*). Fourth, regarding **Scope Reduction & Risk Audit**—identify aggressive simplification strategies (manual interventions, admin overrides, static configurations) while flagging premature future-proofing, edge-case inflation, and critical architectural risks. Fifth, regarding **Definition of Done**—establish objective, verifiable criteria for "MVP DONE" across the 8 specified diagnostic deliverables, utilizing bottom-line summaries from supporting project files (`DEFERRAL.md`, `specialty-decision-log.md`, newly attached draft UI specs) without re-deriving resolved decisions.
+>
+</details>
+
+---
+
 This document answers the scoping prompt directly: why the project got this large, where the true MVP boundary actually sits, a requirement-by-requirement classification with schema/backend/frontend timing separated out, the real financial and data invariants, what to model now versus never, aggressive scope cuts, the architectural risks worth losing sleep over, and an objective "MVP DONE" line. It builds on `mvp-stepback-review.md` (the previous deliverable in this project) rather than re-deriving everything in it — where this document needs a finding from that one, it says so and moves on, rather than re-arguing it from scratch.
 
 ---

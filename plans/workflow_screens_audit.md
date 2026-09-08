@@ -6,6 +6,13 @@
 
 **Baseline Note:** All 5 screens are currently isolated, non-interconnected presentation components running on 100% mock data with dummy `alert()` handlers. No Supabase integration exists.
 
+> **[COMPACTED PROMPT]**
+> <details>
+> <summary><b>Click to view the Compacted Audit Prompt</b></summary>
+> Deploy a multi-agent architectural and design audit across the 5 isolated podium showcase screens in `src/pages/vistitworkflow.tsx` (`DailyLedger`, `NewPatientIntake`, `ComplaintSelector`, `ProcedureLogger`, `InvoiceBuilder`), cross-referencing backend specifications (`FRONTEND_WORKFLOW.md`, `supabase_migration.md`, `schema_cross_reference.md`, `specialty-decision-log.md`, `module_1/decisions`, `module_1/gaps`) and evaluating them against `frontend-design-principles.md`. First, regarding **Inter-Screen & Step-by-Step Workflow Readiness**—trace the end-to-end clinical reception journey (`Daily Ledger` search/intake → `Complaint Selector` → `Procedure Logger` → `Invoice & Payment`), identifying exact prop contracts, missing callbacks, shared state machines, and data-pipeline gaps required to transition from isolated presentation mocks into a connected multi-step flow. Second, regarding **Backend & Data Contract Alignment**—audit each component against Supabase v11 schemas, triggers, and business invariants (pricing calculations, consultation models, RLS visibility windows, MRN generation, Pay Later lifecycle, and multi-visit foreign keys), isolating critical backend blockers and contract drift. Third, regarding **UX, Visual Hierarchy & Accessibility Auditing**—evaluate individual screens and global composition against design principles (typography scale, spatial grid alignment, WCAG contrast compliance, token consistency, keyboard accessibility/ARIA patterns, and data persistence/failure recovery), delivering a prioritized matrix of technical blockers, design violations, and critical bug fixes.
+>
+> </details>
+
 ---
 
 ## Summary Comparison Matrix

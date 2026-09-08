@@ -1,6 +1,14 @@
 # MVP Step-Back & Reconsideration Review
 ### Clinic management backend — fee engine, packages pluggability, specialty services, invoicing
 
+
+> **[COMPACTED PROMPT]**
+> <details>
+> <summary><b>Click to view the Compacted Review Prompt</b></summary>
+> Perform a comprehensive, sequential step-back architectural review of the clinic management backend MVP (fee engine, specialty services, invoicing, and schema boundaries), using `docs/supabase_migration.md` strictly as the initial baseline starting state rather than a live running system. First, regarding **Scouting & Inventory Analysis**—conduct a thorough, step-by-step audit of the fee engine, tenancy hardening, session/encounter representations, and invoicing structures to separate confirmed business requirements from unconfirmed speculative design. Second, regarding the **Pluggable Packages Constraint (Deferral with Forward Compatibility)**—while fully deferring the complex Packages module (subscription lifecycle, attendance day tracking, calendar vs. visit modes, clinic closures, and cancellation refunds), guarantee that the MVP Pay-Per-Visit schema remains 100% forward-compatible through three non-negotiable architectural hooks: (1) `visits.therapy_fee_in_paise` isolated as an independent column to allow future package triggers to auto-zero therapy fees without disturbing other fee buckets, (2) `visits.package_id` modeled as a nullable foreign key, and (3) `invoice_line_items` natively accommodating ₹0 package-covered visit lines. Third, regarding **MVP Boundary & Reconsideration**—rigorously evaluate where the MVP can be simplified to maximize implementation speed and clinic trust without breaking or compromising these core pluggable hooks.
+>
+> </details>
+
 ---
 
 ## Headline Finding
