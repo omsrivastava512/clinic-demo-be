@@ -2,7 +2,7 @@
 
 **Scope:** The 5 podium showcase screens in [`vistitworkflow.tsx`](file:///c:/Github/clinic-demo/src/pages/vistitworkflow.tsx), evaluated against clinical workflow intent, Supabase v11 schema contracts, and [`frontend-design-principles.md`](file:///c:/Github/clinic-demo-be/.agents/workflows/frontend-design-principles.md).
 
-**Methodology:** 6 parallel research agents audited all component source files, backend specifications ([`FRONTEND_WORKFLOW.md`](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md), [`supabase_migration.md`](file:///c:/Github/clinic-demo-be/docs/supabase_migration.md), [`schema_cross_reference.md`](file:///c:/Github/clinic-demo-be/docs/schema_cross_reference.md)), business logic decision logs ([`specialty-decision-log.md`](file:///c:/Github/clinic-demo-be/study/business_logic/speciality_and_invoice/specialty-decision-log.md), [`DECISIONS.md`](file:///c:/Github/clinic-demo-be/study/module_1/DECISIONS.md), [`GAPS.md`](file:///c:/Github/clinic-demo-be/study/module_1/GAPS.md), [`LOGS.md`](file:///c:/Github/clinic-demo-be/study/module_2/LOGS.md)), and the [`frontend-backend-wiriing-proposal.md`](file:///c:/Github/clinic-demo-be/plans/frontend-backend-wiriing-proposal.md).
+**Methodology:** 6 parallel research agents audited all component source files, backend specifications ([`FRONTEND_WORKFLOW.md`](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md), [`supabase_migration.md`](file:///c:/Github/clinic-demo-be/docs/schema/supabase_migration.md), [`schema_cross_reference.md`](file:///c:/Github/clinic-demo-be/docs/schema/schema_cross_reference.md)), business logic decision logs ([`specialty-decision-log.md`](file:///c:/Github/clinic-demo-be/study/business_logic/speciality_and_invoice/specialty-decision-log.md), [`DECISIONS.md`](file:///c:/Github/clinic-demo-be/study/module_1/DECISIONS.md), [`GAPS.md`](file:///c:/Github/clinic-demo-be/study/module_1/GAPS.md), [`LOGS.md`](file:///c:/Github/clinic-demo-be/study/module_2/LOGS.md)), and the [`frontend-backend-wiriing-proposal.md`](file:///c:/Github/clinic-demo-be/plans/frontend-backend-wiriing-proposal.md).
 
 **Baseline Note:** All 5 screens are currently isolated, non-interconnected presentation components running on 100% mock data with dummy `alert()` handlers. No Supabase integration exists.
 
@@ -158,7 +158,7 @@ Phase 3: Supabase Wiring (actual integration)
 
 ## Screen 1: Daily Ledger (`DailyLedger`)
 
-> [Component files](file:///c:/Github/clinic-demo/src/features/ledger) • [Workflow spec: Step 0](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L27-L42) • [Decisions 3 & 4](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L166-L183)
+> [Component files](file:///c:/Github/clinic-demo/src/features/ledger) • [Workflow spec: Step 0](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L27-L42) • [Decisions 3 & 4](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L166-L183)
 
 ### Clinical Intent vs. Current State
 
@@ -209,7 +209,7 @@ The Daily Ledger is the receptionist's home terminal — a live, clinic-scoped r
 
 ## Screen 2: New Patient Registration (`NewPatientIntake`)
 
-> [Component files](file:///c:/Github/clinic-demo/src/features/patient/NewPatientIntake) • [Workflow spec: Step 1](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L45-L61) • [Decision 5](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L186-L192)
+> [Component files](file:///c:/Github/clinic-demo/src/features/patient/NewPatientIntake) • [Workflow spec: Step 1](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L45-L61) • [Decision 5](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L186-L192)
 
 ### Clinical Intent vs. Current State
 
@@ -263,7 +263,7 @@ Patient registration for an active Indian OPD clinic. The form captures demograp
 
 ## Screen 3: Complaint Selector (`ComplaintSelector`)
 
-> [Component files](file:///c:/Github/clinic-demo/src/features/visit/ComplaintSelector) • [Workflow spec: Step 2](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L64-L80) • [Decision 2](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L156-L163)
+> [Component files](file:///c:/Github/clinic-demo/src/features/visit/ComplaintSelector) • [Workflow spec: Step 2](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L64-L80) • [Decision 2](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L156-L163)
 
 ### Clinical Intent vs. Current State
 
@@ -307,7 +307,7 @@ Enables the clinician to review the patient's ongoing therapy conditions, check 
 
 ## Screen 4: Procedure Logger (`ProcedureLogger`)
 
-> [Component files](file:///c:/Github/clinic-demo/src/features/visit/ProcedureLogger) • [Workflow spec: Step 3](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L83-L98) • [Decision 6](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L195-L201) • [Specialty Decision Log](file:///c:/Github/clinic-demo-be/study/business_logic/speciality_and_invoice/specialty-decision-log.md)
+> [Component files](file:///c:/Github/clinic-demo/src/features/visit/ProcedureLogger) • [Workflow spec: Step 3](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L83-L98) • [Decision 6](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L195-L201) • [Specialty Decision Log](file:///c:/Github/clinic-demo-be/study/business_logic/speciality_and_invoice/specialty-decision-log.md)
 
 ### Clinical Intent vs. Current State
 
@@ -351,7 +351,7 @@ The treatment logging workspace where procedures are assigned per complaint with
 
 ## Screen 5: Invoice & Payment (`InvoiceBuilder`)
 
-> [Component files](file:///c:/Github/clinic-demo/src/features/visit/InvoiceBuilder) • [Workflow spec: Step 4](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L101-L118) • [Decision 1](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md#L146-L153)
+> [Component files](file:///c:/Github/clinic-demo/src/features/visit/InvoiceBuilder) • [Workflow spec: Step 4](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L101-L118) • [Decision 1](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md#L146-L153)
 
 ### Clinical Intent vs. Current State
 
@@ -459,10 +459,10 @@ The financial checkout terminal — itemized billing, payment mode, and confirma
 
 | Document | Location | Role in Audit |
 | :--- | :--- | :--- |
-| Frontend Workflow Spec | [`clinic-demo-be/docs/FRONTEND_WORKFLOW.md`](file:///c:/Github/clinic-demo-be/docs/FRONTEND_WORKFLOW.md) | 5-step flow, open Decisions 1–6, divergence catalog |
-| Supabase Migration v11 | [`clinic-demo-be/docs/supabase_migration.md`](file:///c:/Github/clinic-demo-be/docs/supabase_migration.md) | Canonical schema, triggers, CHECK constraints, RLS |
-| Schema Cross-Reference | [`clinic-demo-be/docs/schema_cross_reference.md`](file:///c:/Github/clinic-demo-be/docs/schema_cross_reference.md) | TS interface ↔ DB column alignment |
-| Schema Iterations | [`clinic-demo-be/docs/backend-schema-iterations.md`](file:///c:/Github/clinic-demo-be/docs/backend-schema-iterations.md) | Architectural evolution v1–v11, deadlock fixes |
+| Frontend Workflow Spec | [`clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md`](file:///c:/Github/clinic-demo-be/docs/contracts/FRONTEND_WORKFLOW.md) | 5-step flow, open Decisions 1–6, divergence catalog |
+| Supabase Migration v11 | [`clinic-demo-be/docs/schema/supabase_migration.md`](file:///c:/Github/clinic-demo-be/docs/schema/supabase_migration.md) | Canonical schema, triggers, CHECK constraints, RLS |
+| Schema Cross-Reference | [`clinic-demo-be/docs/schema/schema_cross_reference.md`](file:///c:/Github/clinic-demo-be/docs/schema/schema_cross_reference.md) | TS interface ↔ DB column alignment |
+| Schema Iterations | [`clinic-demo-be/docs/archive/backend-schema-iterations.md`](file:///c:/Github/clinic-demo-be/docs/archive/backend-schema-iterations.md) | Architectural evolution v1–v11, deadlock fixes |
 | Specialty Decision Log | [`clinic-demo-be/study/business_logic/speciality_and_invoice/specialty-decision-log.md`](file:///c:/Github/clinic-demo-be/study/business_logic/speciality_and_invoice/specialty-decision-log.md) | Session architecture, coordinated writes, fee rules |
 | Specialty UX Mockups | [`clinic-demo-be/study/business_logic/speciality_and_invoice/specialty-treatment-ux-mockups.md`](file:///c:/Github/clinic-demo-be/study/business_logic/speciality_and_invoice/specialty-treatment-ux-mockups.md) | Approach D modal for specialty treatments |
 | Module 1 Decisions | [`clinic-demo-be/study/module_1/DECISIONS.md`](file:///c:/Github/clinic-demo-be/study/module_1/DECISIONS.md) | Clinician attribution, invoice/session options |

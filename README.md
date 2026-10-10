@@ -55,7 +55,7 @@ Bucket 1         Bucket 2         Bucket 3         Bucket 4            Bucket 5
 ```
 
 ### 2.1 The 4-Bucket Fee Engine
-Clinical visits bill through four discrete financial buckets modeled on the [`visits`](docs/supabase_migration.md#L635) table, culminating in an unalterable generated total:
+Clinical visits bill through four discrete financial buckets modeled on the [`visits`](docs/schema/supabase_migration.md#L635) table, culminating in an unalterable generated total:
 
 ```sql
 grand_total_in_paise integer generated always as (
@@ -90,7 +90,7 @@ EXISTS (
 #### Pricing Integrity & Transactional Overrides
 Clinical realities necessitate discretionary discounts, hardship waivers, and promotional rates. To prevent the corruption of financial reports:
 1. `grand_total_in_paise` remains the uncompromised mathematical baseline.
-2. Four dedicated override columns manage deviations: `final_amount_in_paise`, `override_reason`, `override_by` (FK to [`profiles`](docs/supabase_migration.md#L140)), and `override_status` (`'none'`, `'pending'`, `'approved'`).
+2. Four dedicated override columns manage deviations: `final_amount_in_paise`, `override_reason`, `override_by` (FK to [`profiles`](docs/schema/supabase_migration.md#L140)), and `override_status` (`'none'`, `'pending'`, `'approved'`).
 3. An audit trigger enforces that `final_amount_in_paise` can deviate from the computed total only when authorized by an admin profile.
 4. Billing consumers read from the `visits_with_effective_charge` view (`WITH (security_invoker = true)`), resolving effective charges via `COALESCE(final_amount_in_paise, grand_total_in_paise)`.
 
@@ -339,7 +339,7 @@ In early iterations, `patient_clinic_access` was auto-provisioned inside `proces
 2. **The Shallow Walk-In Read Deadlock (SPECIALTY-10/20)**: Service-seeker walk-ins (patients purchasing retail products or undergoing standalone dry needling) never create a complaint course. Under staff RLS, immediately after creating the patient row, a frontend re-fetch returned empty results because no `patient_clinic_access` row existed.
 
 #### The Architectural Fix
-The intake trigger was moved directly to [`patients`](docs/supabase_migration.md#L233):
+The intake trigger was moved directly to [`patients`](docs/schema/supabase_migration.md#L233):
 ```sql
 create or replace function patients_provision_initial_access()
 returns trigger as $$
@@ -368,21 +368,21 @@ create trigger patients_after_insert_provision_access
 
 | Table | Primary Key | Tenancy Key | Description | Key Invariants / Triggers |
 | :--- | :--- | :--- | :--- | :--- |
-| [`clinics`](docs/supabase_migration.md#L75) | `uuid` | `owner_id` | Branch location settings and fee policies. | `invoice_counter` atomic sequence tracking; `validate_owner_is_admin`. |
-| [`profiles`](docs/supabase_migration.md#L140) | `uuid` (auth) | `clinic_id` (null for admin) | System actors with roles: receptionist, clinician, admin. | Cascades from `auth.users`; role enum check. |
-| [`patients`](docs/supabase_migration.md#L233) | `uuid` | `owner_id` | Master patient demographic index. | `UNIQUE(owner_id, mrn)`; `chk_referral_doctor_info`. |
-| [`patient_clinic_access`](docs/supabase_migration.md#L314) | `uuid` | `clinic_id` | Cross-branch patient attendance junction. | Auto-provisioned by `SECURITY DEFINER` triggers; client writes blocked. |
-| [`complaint_catalog`](docs/supabase_migration.md#L455) | `text` (seed) | Global | Standardized anatomical diagnoses. | Seed reference data (`CAT_S01`, etc.); 7 anatomical regions. |
-| [`complaint_courses`](docs/supabase_migration.md#L479) | `uuid` | `clinic_id` | Episode-of-care tracking per complaint. | `process_new_complaint_course()` cross-chain tenancy validation. |
-| [`services`](docs/supabase_migration.md#L589) | `text` (seed) | Global | Master catalog of modalities and procedures. | Categorized as `STANDARD` or `PREMIUM`; `is_specialty_carveout`. |
-| [`clinic_service_prices`](docs/supabase_migration.md#L608) | `uuid` | `clinic_id` | Branch-specific price overrides for services. | `COALESCE(override, base_price)` resolution pattern. |
+| [`clinics`](docs/schema/supabase_migration.md#L75) | `uuid` | `owner_id` | Branch location settings and fee policies. | `invoice_counter` atomic sequence tracking; `validate_owner_is_admin`. |
+| [`profiles`](docs/schema/supabase_migration.md#L140) | `uuid` (auth) | `clinic_id` (null for admin) | System actors with roles: receptionist, clinician, admin. | Cascades from `auth.users`; role enum check. |
+| [`patients`](docs/schema/supabase_migration.md#L233) | `uuid` | `owner_id` | Master patient demographic index. | `UNIQUE(owner_id, mrn)`; `chk_referral_doctor_info`. |
+| [`patient_clinic_access`](docs/schema/supabase_migration.md#L314) | `uuid` | `clinic_id` | Cross-branch patient attendance junction. | Auto-provisioned by `SECURITY DEFINER` triggers; client writes blocked. |
+| [`complaint_catalog`](docs/schema/supabase_migration.md#L455) | `text` (seed) | Global | Standardized anatomical diagnoses. | Seed reference data (`CAT_S01`, etc.); 7 anatomical regions. |
+| [`complaint_courses`](docs/schema/supabase_migration.md#L479) | `uuid` | `clinic_id` | Episode-of-care tracking per complaint. | `process_new_complaint_course()` cross-chain tenancy validation. |
+| [`services`](docs/schema/supabase_migration.md#L589) | `text` (seed) | Global | Master catalog of modalities and procedures. | Categorized as `STANDARD` or `PREMIUM`; `is_specialty_carveout`. |
+| [`clinic_service_prices`](docs/schema/supabase_migration.md#L608) | `uuid` | `clinic_id` | Branch-specific price overrides for services. | `COALESCE(override, base_price)` resolution pattern. |
 | [`sessions`](study/business_logic/speciality_and_invoice/specialty-decision-log.md#L297) | `uuid` | `clinic_id` | Administrative encounter container for batch visits. | Groups concurrent visits and treatment events. |
-| [`visits`](docs/supabase_migration.md#L635) | `uuid` | `clinic_id` | Individual complaint clinical treatment record. | 4-bucket financial columns; `grand_total_in_paise` generated. |
-| [`visit_services`](docs/supabase_migration.md#L697) | `uuid` | `clinic_id` | Junction of services administered during a visit. | `clinic_id` derived from parent visit via trigger. |
+| [`visits`](docs/schema/supabase_migration.md#L635) | `uuid` | `clinic_id` | Individual complaint clinical treatment record. | 4-bucket financial columns; `grand_total_in_paise` generated. |
+| [`visit_services`](docs/schema/supabase_migration.md#L697) | `uuid` | `clinic_id` | Junction of services administered during a visit. | `clinic_id` derived from parent visit via trigger. |
 | [`treatment_events`](study/business_logic/speciality_and_invoice/specialty-decision-log.md#L384) | `uuid` | `clinic_id` | Standalone specialty service delivery records. | Independent revenue bucket; 4-column override pattern. |
 | [`treatment_event_links`](study/business_logic/speciality_and_invoice/specialty-decision-log.md#L393) | `uuid` | Derived | Polymorphic target link for treatment events. | Enforces XOR: `complaint_course_id` OR `catalog_region`. |
-| [`packages`](docs/supabase_migration.md#L737) | `uuid` | `clinic_id` | Multi-session prepaid treatment contracts. | Partial unique index: at most one active package per complaint. |
-| [`invoices`](docs/supabase_migration.md#L783) | `uuid` | `clinic_id` | Financial bill and collection record. | Atomic human-readable `invoice_number` generation (`INV-YYYY-XXXX`). |
+| [`packages`](docs/schema/supabase_migration.md#L737) | `uuid` | `clinic_id` | Multi-session prepaid treatment contracts. | Partial unique index: at most one active package per complaint. |
+| [`invoices`](docs/schema/supabase_migration.md#L783) | `uuid` | `clinic_id` | Financial bill and collection record. | Atomic human-readable `invoice_number` generation (`INV-YYYY-XXXX`). |
 | [`invoice_line_items`](study/business_logic/speciality_and_invoice/specialty-decision-log.md#L376) | `uuid` | Derived | Granular line-item breakdown for invoices. | XOR check constraint across 4 sources; deferred sum matching. |
 
 ---
@@ -454,15 +454,21 @@ A central architectural finding of the [`plans/workflow_screens_audit.md`](plans
 
 ```
 clinic-demo-be/
-├── docs/                                 # Authoritative Schema & System Specifications
-│   ├── supabase_migration.md             # Complete Supabase v11 DDL migration script (tables, triggers, RLS)
-│   ├── schema_cross_reference.md         # Column-by-column justification cross-referenced with frontend types
-│   ├── backend-schema-iterations.md      # Historical audit of schema versions v1 through v11
-│   ├── FRONTEND_WORKFLOW.md              # Reception desk UI state transitions & architectural decisions
-│   ├── FRONTEND_DASHBOARD.md             # Multi-branch executive metrics and reporting architecture
-│   └── FRONTEND_PATIENT_PROFILE.md       # Clinical chart, vitals grid, and longitudinal history contracts
+├── docs/                                 # Authoritative Schema, Contracts & Architecture
+│   ├── schema/                           # Canonical Database References & Migration DDL
+│   │   ├── supabase_migration.md         # Complete Supabase v11 DDL migration script (tables, triggers, RLS)
+│   │   ├── schema_cross_reference.md     # Column-by-column justification cross-referenced with frontend types
+│   │   └── schema_status_map.md          # Decided / Open / Deferred status ledger across schema domains
+│   ├── contracts/                        # Frontend-to-Backend Integration Contracts
+│   │   ├── FRONTEND_WORKFLOW.md          # Reception desk UI state transitions & architectural decisions
+│   │   ├── FRONTEND_DASHBOARD.md         # Multi-branch executive metrics and reporting architecture
+│   │   └── FRONTEND_PATIENT_PROFILE.md   # Clinical chart, vitals grid, and longitudinal history contracts
+│   └── archive/                          # Historical Design Rationale & Retrospective Audits
+│       ├── backend-schema-iterations.md  # Historical audit of schema versions v1 through v11
+│       └── backend_discussions_audit_report.md # Comprehensive discussion and decision audit
 │
 ├── study/                                # Architectural Studies, Decision Logs & Pre-Implementation Proofs
+│   ├── schema-study-plan-v2.md           # 10-module study curriculum anchored to schema tables
 │   ├── business_logic/
 │   │   ├── speciality_and_invoice/       # Specialty Treatments, Session Boundary & Line Item Architecture
 │   │   │   ├── specialty-decision-log.md # Exhaustive running log (Entries 01–31) covering SPECIALTY-01 to 13
@@ -483,6 +489,7 @@ clinic-demo-be/
 │       └── LOGS.md                       # Real bugs, RLS bypass vectors, and clinic derivation analysis
 │
 └── plans/                                # Implementation Plans, Audits & Wiring Proposals
+    ├── daily_plan_v8.md                  # Active sprint execution roadmap & weekly phase milestones
     ├── mvp/                              # Production MVP Scope Scrutiny & Boundary Diagnosis
     │   ├── mvp-index.md                  # Executive index: What to build now vs. defer entirely
     │   ├── mvp-revalidation-four-studies.md # Technical defense of schema invariants vs. premature complexity
@@ -525,7 +532,7 @@ To stand up the complete database schema within Supabase:
 1. **Prerequisites**: Supabase project running PostgreSQL 15+ with the `pg_trgm` extension enabled.
 2. **Execute Migration**:
    - Open your Supabase Dashboard → **SQL Editor** → **New Query**.
-   - Copy the entire SQL content from [`docs/supabase_migration.md`](docs/supabase_migration.md).
+   - Copy the entire SQL content from [`docs/schema/supabase_migration.md`](docs/schema/supabase_migration.md).
    - Execute query.
 3. **Verify Integrity**:
    ```sql
