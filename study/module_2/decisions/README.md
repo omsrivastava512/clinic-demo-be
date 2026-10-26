@@ -25,6 +25,18 @@ Important supersessions: ordinary therapy is flat-only in the proposed model; in
 
 The [updated workbook](clinic_module2_checkout_payments_voiding_addendum_2026-10-25_164648_IST.xlsx) retains its original filename and seven tabs. It preserves the initial 34 discussion entries alongside current interpretations and sources, adds later decisions and distinguishes active, closed and future issues. It is no longer an unchanged 16:46 snapshot; its Overview and Sources identify the reconciliation. Source paths point to the originals in `history/`.
 
+## Upcoming decisions (staging)
+
+The [upcoming/](upcoming/) directory contains in-flight addenda and running decision logs from the October 25–26 working sessions that are currently awaiting final consolidation into the primary topic pages:
+
+| Record | Focus |
+| --- | --- |
+| [Waiver and catalog addendum](upcoming/clinic_module2_waiver_catalog_addendum_2026-10-25.md) | Dedicated `Waived` terminal status, balance zeroing, and single-clinic MVP scope |
+| [Running log and follow-up](upcoming/clinic_module2_running_log_and_followup_2026-10-25.md) | Examination-only visits, 30-day recurrence rules, and calendar gap calculation |
+| [Six questions / three ideas](upcoming/clinic_module2_six_questions_three_ideas_settled_addendum_2026-10-25.md) | Multi-installment Due repayments, partial checkout receipts, and atomic checkout |
+| [Post-addendum decisions](upcoming/clinic_module2_post_addendum_decisions_2026-10-25.md) | CASH/UPI tender restriction, split tenders, derived balances, and server-time lock |
+| [Running log (Oct 26, 11:30 IST)](upcoming/clinic_module2_running_decision_log_2026-10-26_1130_IST.md) | D26-01 to D26-15: `payments` table DDL invariants, BIGINT paise, and invoice deletion locks |
+
 ## Original records and precedence
 
 | Original | Purpose |
