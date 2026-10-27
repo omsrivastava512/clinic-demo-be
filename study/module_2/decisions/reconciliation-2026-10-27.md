@@ -1,6 +1,6 @@
 # Module 2 decision reconciliation — 27 October 2026
 
-The six topic pages and the decision register below state the current Module 2 decisions. Each settled subject has one operative rule; Q06 and parked audits remain explicitly open. Q07 is settled: admin-only master prices and availability. Original source wording, chronology and comparison tables are evidence only and cannot override current rules. This reconciliation includes the later user instructions through S20; it does not establish deployed schema.
+The six topic pages and the decision register below state the current Module 2 decisions. Each settled subject has one operative rule. All seven review questions are settled; parked implementation audits remain explicitly open. Original source wording, chronology and comparison tables are evidence only and cannot override current rules. This reconciliation includes the later user instructions through S22; it does not establish deployed schema.
 
 ## Source inventory and precedence
 
@@ -23,11 +23,13 @@ The six topic pages and the decision register below state the current Module 2 d
 | S15 | [module2_mvp_chat_decision_log_2026-10-26.md](history/module2_mvp_chat_decision_log_2026-10-26.md) | Earlier reconstruction plus later D-26–D-44 reconciliation |
 | S16 | [chatgpt-full-transcript-1793041621482.json](history/chatgpt-full-transcript-1793041621482.json) | 176-message primary export; displaced opening replies and incomplete Show more text |
 | S17 | [User reconciliation answers and corrections](history/clinic_module2_reconciliation_resolutions_2026-10-27.md) | Q01–Q04 resolutions/corrections; Q05–Q07 question explanations |
-| S18 | [Current decision authority](history/clinic_module2_current_decision_authority_2026-10-27.md) | Current files must agree; original four status names explicitly retained |
+| S18 | [Current decision authority](history/clinic_module2_current_decision_authority_2026-10-27.md) | Current files must agree; earlier label choice subsequently superseded by S21 |
 | S19 | [Clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md) | Q05 settled; Q06 discussion |
-| S20 | [Admin catalog authority](history/clinic_module2_admin_catalog_authority_2026-10-27.md) | Q07 settled: admin-only prices and availability; Q06 remains open |
+| S20 | [Admin catalog authority](history/clinic_module2_admin_catalog_authority_2026-10-27.md) | Admin-only prices and availability |
+| S21 | [Status names and standalone identity](history/clinic_module2_status_names_and_standalone_identity_2026-10-27.md) | Approved UNPAID/PARTIALLY_PAID/PAID/WAIVED; Q06 service ID with joined name; all seven review questions settled |
+| S22 | [Consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md) | Compact final answers and owner explanations for Q01–Q07; no new policy |
 
-S01–S09 preserve the existing workbook source IDs. S10–S20 extend them. S17–S20 record the subsequent user clarifications in this chat and are not part of S16. Earlier October 21/22 and O06 archived records remain linked by the owning topics and unchanged in history. The existing October 25 chronology guide remains a historical reconciliation snapshot.
+S01–S09 preserve the existing workbook source IDs. S10–S22 extend them. S17–S21 record the subsequent user clarifications in this chat and are not part of S16. Earlier October 21/22 and O06 archived records remain linked by the owning topics and unchanged in history. The existing October 25 chronology guide remains a historical reconciliation snapshot.
 
 Use subject-specific explicit approvals, not a blanket newest-file-wins rule. S14 is internally incremental: its appended §8 follows its initial checkpoint. S15 preserves earlier reconstruction alongside later decisions; S16 directly supports only the supplied export. A later assistant proposal is not approval. Original decision IDs are source-qualified because similarly named IDs in different logs are not the same record.
 
@@ -67,29 +69,41 @@ The 11 pre-existing history files and the research document remain byte-for-byte
 
 ## Subsequent user clarification
 
-S17 records Q01–Q04 resolutions/corrections. S19 subsequently resolves Q05; Q07 is now settled by S20; Q06 remains open. The status-rename attribution and clinical-first exception were errors in the earlier reading, not proven deliberate policy reversals by the user. Existing archived sources and dump originals are unchanged.
+S17 records Q01–Q04 resolutions/corrections. S19 subsequently resolves Q05; S20 settles Q07; S21 subsequently settles Q06. The status-rename attribution and clinical-first exception were errors in the earlier reading, not proven deliberate policy reversals by the user. Existing archived sources and dump originals are unchanged.
 
 | Source | New record | Bytes | SHA-256 |
 | --- | --- | --- | --- |
 | S17 | [clinic_module2_reconciliation_resolutions_2026-10-27.md](history/clinic_module2_reconciliation_resolutions_2026-10-27.md) | 6535 | 2604D4DF6CBD1CDCF9174B208CF569FEA7987F8BF748B771E0517B64C4347487 |
 
-S18 confirms that current files must state one consistent rule per settled subject and explicitly retains the original status names. S19 subsequently settles Q05; Q07 is now settled by S20; Q06 remains unanswered.
+S18 establishes one consistent current rule per settled subject; its earlier status-label choice is subsequently superseded by S21. S19 subsequently settles Q05; S20 settles Q07; S21 subsequently settles Q06.
 
 | Source | New record | Bytes | SHA-256 |
 | --- | --- | --- | --- |
 | S18 | [clinic_module2_current_decision_authority_2026-10-27.md](history/clinic_module2_current_decision_authority_2026-10-27.md) | 2549 | 452CABC381939E1663C177F8D0A6864352A2B002CFE50BD2AB189598B2168826 |
 
-S19 settles Q05: the pre-issuance preview is clinical; automatic fees first appear on the returned issued invoice. Q07 is now settled by S20; Q06 remains open.
+S19 settles Q05: the pre-issuance preview is clinical; automatic fees first appear on the returned issued invoice. S20 settles Q07; S21 subsequently settles Q06.
 
 | Source | New record | Bytes | SHA-256 |
 | --- | --- | --- | --- |
 | S19 | [clinic_module2_clinical_preview_fee_visibility_2026-10-27.md](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md) | 1976 | 811730FE0B8C0755A44006EEF3C404710CB94E40D07A3CB76B59DF1C9C7C83EB |
 
-S20 settles Q07: only admin may edit master catalog prices and availability. Q06 remains unanswered.
+S20 settles Q07: only admin may edit master catalog prices and availability. Q06 is subsequently settled by S21.
 
 | Source | New record | Bytes | SHA-256 |
 | --- | --- | --- | --- |
 | S20 | [clinic_module2_admin_catalog_authority_2026-10-27.md](history/clinic_module2_admin_catalog_authority_2026-10-27.md) | 1270 | 232D0DC1E965FB215007F54A57518A1E4F201D456DC05D6CBB269B47809EFBBD |
+
+S21 explicitly approves UNPAID/PARTIALLY_PAID/PAID/WAIVED and settles Q06 as service_id with a joined catalog name,no copied clinical name. All seven review questions are settled; technical audits remain unfinished.
+
+| Source | New record | Bytes | SHA-256 |
+| --- | --- | --- | --- |
+| S21 | [clinic_module2_status_names_and_standalone_identity_2026-10-27.md](history/clinic_module2_status_names_and_standalone_identity_2026-10-27.md) | 2456 | 010FA190E80A264CC7AAAB35BF35363C577D0E9286445F118CB3CD284186ACE6 |
+
+S22 is the compact consolidated history record of all seven final answers and their explanations. It adds no new business policy. The current topic pages and tracker were checked against it.
+
+| Source | New record | Bytes | SHA-256 |
+| --- | --- | --- | --- |
+| S22 | [clinic_module2_seven_review_answers_2026-10-27.md](history/clinic_module2_seven_review_answers_2026-10-27.md) | 3359 | A498F49A71A28973092CB5F3AB6E09A57F95D9BEEE737F827BDD55F497B10169 |
 
 ## Decision register
 
@@ -125,7 +139,7 @@ Rows summarize fact-level reconciliation; they are not a count of newly approved
 | R26 | clinical | LOCKED DIRECTION | Each independently performed standalone treatment is its own timestamped immutable patient-linked occurrence and its own billable source, without a fabricated complaint-visit. Two actual performances remain distinct even for the same catalog service/body region. | S03 §11.5; S15 D-08–D-09; S16 M009 |
 | R27 | clinical | LOCKED MVP | Do not link standalone treatment occurrences to complaint_course_id in the latest discussed model. This supersedes the optional-link recommendation and its local complaint-ownership constraint; it does not cancel the schema-wide ownership audit. | S15 D-28; S16 M020–M023 |
 | R28 | clinical | LOCKED REQUIREMENT / AUDIT REQUIRED | Every standalone treatment must identify its anatomical body region. Shared body_regions lookup versus other representation and cross-catalog migration remain audited; the assistant's table-versus-enum declaration is not independent approval of storage. | S15 D-29; S16 M026–M031 |
-| R29 | clinical | AUDIT DETAIL Q06 | Catalog service identity, common authenticated recorder/server timestamp conventions and immutable invoice-line descriptions are settled. Q06 is narrowed to an additional service-name snapshot on the standalone clinical occurrence itself; exact physical DDL remains audited. | S16 M006,M008; S15 D-32; S17 Q06 explanation |
+| R29 | clinical | LOCKED MVP / Q06 RESOLVED | Standalone clinical occurrences store mandatory service_id and display the catalog name through a join; no extra clinical treatment-name snapshot. Invoice-line descriptions and amounts remain immutable snapshots. Common server recorder/timestamp conventions remain settled; exact DDL remains audited. | S21; S16 M006,M008; S15 D-32 |
 | R30 | clinical | LOCKED MVP | No physical deletion or retroactive correction/voiding of performed standalone/clinical history is approved for MVP. Preserve recorded events and issued charges; absence of a correction feature does not make mistaken entries truthful. | S09 §§1–2; S15 D-09,D-23; S16 M009 |
 | R31 | checkout | LOCKED MVP | Issued invoice line descriptions and amounts are immutable historical snapshots, including while unpaid/partially paid. Sum issued lines for billed total; changing catalog prices cannot rewrite existing bills. | S03 §11.4; S12 Q6 and §3.2; S14 D26-02; S15 D-16 |
 | R32 | checkout | LOCKED MVP / Q01 RESOLVED | At least one invoice line is mandatory. A package-covered-only invoice may total zero, overriding the blanket positive-total rule for that case. Validate coverage on the backend; do not infer individual-line positivity from positive payment requirements. | S17 U01; S14 D26-03,D26-08; S03 §11.3 |
@@ -133,9 +147,9 @@ Rows summarize fact-level reconciliation; they are not a count of newly approved
 | R34 | checkout | PROVISIONAL DEFAULT / AUDIT REQUIRED | Typed real source FKs are the working default; require exactly one logical billable source per line. Context FKs are not additional billable sources. Include extra_fees without preselecting clinical-examination DDL. Database enforcement is required, but exact columns/CHECK are not finalized. | S03 §§5–7; S15 D-13,D-17,D-33; S16 M009,M098 |
 | R35 | checkout | LOCKED REQUIREMENT / AUDIT REQUIRED | Prevent billing the same source occurrence twice across invoice lines/invoices. Uniqueness belongs to an actual visit/treatment/fee occurrence, never the reusable catalog service_id. One visit belongs to at most one invoice; no one-invoice-per-day rule or final membership FK is approved. | S03 §§5–7; S15 D-14,D-17; S16 M009 |
 | R36 | payments | LOCKED MVP | PAID means the billed balance is discharged by actual receipts or the expressly allowed package-covered-only zero settlement. WAIVED means admin forgave the entire residual, possibly after partial receipts. Both are terminal with zero collectible balance; no later payment, waiver or state mutation. | S17 U01; S10 §1; S12 Q2,Q5–Q6; S15 D-23 |
-| R37 | payments | LOCKED MVP | Four invoice states are PENDING (issued,no receipt),DUE (partial receipt,balance remains),PAID and WAIVED. The user explicitly reconfirmed these names; no alternative labels are approved or applied. | S18; S17 U02; S12 §3.3; S14 §4 |
-| R38 | payments | LOCKED MVP | For positive invoices, reception initially chooses Pay Later/PENDING with no receipt, DUE after a partial positive receipt, or PAID after full receipt. No zero payment row. A covered-only zero invoice instead offers only Mark as paid after issuance. | S17 U01–U02; S12 Idea B and §3.4 |
-| R39 | payments | LOCKED MVP | Admin/owner can record unlimited successive positive repayments on an older Due invoice and leave the residual Due. Money toward old dues is handed off to admin manually; reception does not automatically allocate across old invoices. | S12 Q1 and Idea C; S14 D26-04 |
+| R37 | payments | LOCKED MVP | Four states are UNPAID (issued,no receipt),PARTIALLY_PAID (positive receipts with collectible balance),PAID and WAIVED. The user explicitly approves this naming set in S21. Terminal behavior and the covered-only zero PAID exception remain unchanged. | S21 supersedes S18 terminology; S17 U01; S12 §3.3 |
+| R38 | payments | LOCKED MVP | For positive invoices, reception initially chooses Pay Later/UNPAID with no receipt, PARTIALLY_PAID after a partial positive receipt, or PAID after full receipt. No zero payment row. A covered-only zero invoice instead offers only Mark as paid after issuance. | S17 U01–U02; S12 Idea B and §3.4; S21 terminology |
+| R39 | payments | LOCKED MVP | Admin/owner can record unlimited successive positive repayments on an older PARTIALLY_PAID invoice and leave the residual PARTIALLY_PAID. Money toward old dues is handed off to admin manually; reception does not automatically allocate across old invoices. | S12 Q1 and Idea C; S14 D26-04; S21 terminology |
 | R40 | payments | LOCKED MVP | Reception cannot waive or autonomously modify older invoices. Waiver controls are visible to admin/owner only and backend authorization must reject unauthorized settlement, not rely on UI hiding. | S12 Q1–Q2 and Idea B; S15 D-20 |
 | R41 | payments | LOCKED RULE / AUDIT REQUIRED | Requested total collection cannot exceed current collectible outstanding. Enforce on frontend and backend under concurrency; exact implementation/locking is not completed by the source set. Reject settlement attempts on terminal invoices. | S13 A5; S15 D-23 and §§5–6 |
 | R42 | payments | LOCKED MVP | Backend payment methods are an enum limited to Cash and UPI. Split is a frontend input mode, not a third stored method. Card and bank transfer are excluded; exact SQL naming/casing is not selected by this record. | S13 A3 |
@@ -151,15 +165,15 @@ Rows summarize fact-level reconciliation; they are not a count of newly approved
 | R52 | payments | LOCKED MVP | WAIVED requires a nonempty free-text reason; frontend text presets are allowed. Ordinary full payment requires no reason. Waiver/write-off share WAIVED without separate WRITE_OFF status or structured reason enum. Reason examples do not authorize a correction workflow. | S13 A1,A9; S14 D26-07 |
 | R53 | payments | LOCKED DESIGN | Use settled_at and settled_by for final PAID or WAIVED closure instead of separate paid_at/waived_at/waived_by. waiver_reason is required for WAIVED and null for PAID. Precise nonterminal constraints and physical migration remain audited. | S14 D26-09 and §6 |
 | R54 | payments | LOCKED DIRECTION / AUDIT REQUIRED | Derive billed from immutable lines and received from positive payments. For terminal WAIVED, forgiven=billed−received and collectible outstanding=0; otherwise forgiven=0 and outstanding=billed−received. No redundant authoritative total, waived_amount, or outstanding_amount columns. Query/view and aggregation safety remain audited. | S10 §1.2; S14 D26-01–D26-02,D26-07; S15 §5 |
-| R55 | payments | LOCKED MVP | Final waiver forgives the entire remainder and ends WAIVED, whether earlier receipts exist or zero money was received. Partial waiver while keeping the invoice Due is outside this MVP model. A full waiver creates no payment row. | S10 §1.1; S12 Q2,Q5; S14 D26-01 |
+| R55 | payments | LOCKED MVP | Final waiver forgives the entire remainder and ends WAIVED, whether earlier receipts exist or zero money was received. Partial waiver while keeping the invoice PARTIALLY_PAID is outside this MVP model. A full waiver creates no payment row. | S10 §1.1; S12 Q2,Q5; S14 D26-01; S21 terminology |
 | R56 | payments | LOCKED MVP | Discounts use standard issued prices, actual positive receipt(s), and admin waiver of the remaining collectible balance. This leaves WAIVED; it does not reprice lines or approve an overcharge/clinical-error correction feature. | S15 D-04–D-05,D-21–D-22; S09 §§1–2 |
-| R57 | payments | LOCKED MVP | Collection reports sum actual dated positive receipts, including receipts on still-Due and later-WAIVED invoices. Do not use billed totals, PAID-only invoice filters, or forgiven amounts as cash. Delayed-entry reporting follows R46. | S12 §3.4; S14 D26-06 |
+| R57 | payments | LOCKED MVP | Collection reports sum actual dated positive receipts, including receipts on still-PARTIALLY_PAID and later-WAIVED invoices. Do not use billed totals, PAID-only invoice filters, or forgiven amounts as cash. Delayed-entry reporting follows R46. | S12 §3.4; S14 D26-06; S21 terminology |
 | R58 | payments | LOCKED MVP | No separate numbered/printed/sent payment receipt artifact is required. Keep the backend payment record and clear saved-amount/method/status/balance confirmation. | S12 §3.4; S09 §6 |
 | R59 | payments | LOCKED BUSINESS / AUDIT REQUIRED | Show payment success only after confirmed backend save. Failed or uncertain responses cannot claim success. Exact API payloads, UI state, cancellation, and error/recovery contracts remain audited. | S12 §3.4; S15 §6 |
 | R60 | checkout | LOCKED REQUIREMENT | Disable submit while a request is pending. Preserve the form and allow manual retry after confirmed rollback; no automatic client/server retry loop. Backend duplicate prevention is still mandatory; button disabling and atomicity do not prove idempotency. | S12 Q4; S15 D-18–D-19; S16 M009 |
 | R61 | checkout | PROVISIONAL / AUDIT REQUIRED | The proposed idempotency-key/request-hash/invoice record is not final. Audit request scope, canonical hashing, concurrent races, retention, lost-response recovery, and payment replay. Unknown outcome is not confirmed rollback. | S15 D-24; S16 M108–M109 |
 | R62 | packages | PARKED OTHER CHAT / MVP REQUIRED | Packages remain required for MVP; detailed offering,purchase,activation,coverage,validity and redemption remain in another chat. Covered-only zero-total invoices are now explicitly allowed; detailed eligibility and activation are still unfinished. | S17 U01; S09 §§6–7; S11 Part I §10; S15 D-07 |
-| R63 | checkout | DEFERRED FUTURE | No post-issuance append/remove/reprice, replacement/void-and-reissue, saved-payment repair, or retroactive clinical correction in MVP. Earlier Pending/Due append permission was explicitly withdrawn; do not prebuild unused voiding fields. | S09 §§1–2,7; S12 Q6 |
+| R63 | checkout | DEFERRED FUTURE | No post-issuance append/remove/reprice,replacement/void-and-reissue,saved-payment repair or retroactive clinical correction in MVP. No unused voiding fields are preapproved. | S09 §§1–2,7; S12 Q6 |
 | R64 | cross | CONDITIONAL FUTURE | If correction/voiding is later built, preserve conditional admin-only authority, child and parent consistency, Paid-link blocks, financial floors, and audit metadata. Waiver-plus-void double reduction and false-record/Paid-lock traps remain unresolved future risks. | S07 §§1–6; S08 G06–G15; S09 §§1–2 |
 | R65 | cross | AUDIT REQUIRED | Retain historical dispositions for vitals (drop/dormant unresolved), alerts (removal intent subject to dependency/data checks), and timeline_events (purpose to investigate). No cleanup, deletion, or live-schema inventory was performed here. | S06 §5; S08 §4; existing clinical topic |
 | R66 | cross | AUDIT REQUIRED | Legacy daily_ledger Complete/Pending/Due semantics and current collection derivations need review. Avoid multiplying line/payment sums through a naive join. A documented view or proposed check is not implemented evidence. | S06 §5; S08 §4; S14 §6 |
@@ -170,13 +184,15 @@ Rows summarize fact-level reconciliation; they are not a count of newly approved
 | R71 | cross | CLOSED SESSION WITH EXCLUSIONS | The final transcript closes the active non-audit business discussion, after excluding audits and packages. It does not establish completed schema, SQL/API/RLS, migration, or executed acceptance/concurrency checks. | S15 D-38,D-44 and §§4,6,9; S16 M114,M169–M176 |
 | R72 | cross | AUDIT REQUIRED | Keep exact DDL, indexes, RPCs, authorization/ownership, concurrency, financial queries, migration/rollback and validation as unfinished engineering follow-up. Proposed payment indexes are not approved merely because they were suggested. | S14 §6 and §8; S15 §§4–6; existing O13–O18 |
 | R73 | cross | PROCESS / EVIDENCE LIMIT | Preserve source records; discuss one meaningful unresolved choice at a time and distinguish user approval from assistant proposal. The export's displaced opening approvals and Show more markers limit exact chronology. Documentation consolidation is not schema implementation. | S14 §0,§7; S15 D-25 and metadata; S16 M001–M009 |
-| R74 | checkout | USER RESOLUTION Q01 | Package-covered-only zero invoices are allowed, with at least one real line and backend-validated coverage. After issuance offer only Mark as paid, close PAID with existing settlement metadata, create no payment row and report zero collections. Positive uncovered fees use ordinary settlement. | S17 U01 |
-| R75 | payments | USER CONFIRMED Q02 | Retain PENDING,DUE,PAID,WAIVED. The user explicitly confirmed retaining these names in S18; the earlier assistant-introduced replacement labels have no current authority. | S18; S17 U02; S16 M105–M107 |
-| R76 | exams | USER CLARIFICATION Q03 | Doctor examination is clinical protocol. Reception submits clinical entries and clicks Create Invoice; backend checks calendar-day gap and automatically includes the applicable fee in the returned invoice. No new manual examination gate is required. | S17 U03; S15 D-35; S16 M089–M099 |
-| R77 | checkout | USER CORRECTION Q04 | No clinical-save-first/bill-later path in MVP: clinical records, applicable fees, invoice and lines commit atomically. S12 Q3's earlier exception is a source-summary error. Payment/waiver settlement follows separately after the invoice is returned. | S17 U04; S12 Q3 line 52 |
-| R78 | cross | CURRENT DECISION AUTHORITY | Settled current rules agree across topic pages,register and tracker current columns. Historical evidence cannot override them. Q01–Q05 and Q07 are settled; only Q06 remains unanswered among the review questions. Parked technical audits remain open. | S18–S20 |
-| R79 | checkout | USER RESOLUTION Q05 | Before Create Invoice, review what was done today for clinical accuracy. The preview shows clinical records, without automatic fee amounts or invoice prices/totals. Existing last-visit context may remain visible. After successful atomic issuance, display the complete itemized invoice with automatic fees and total; settlement follows separately. Backend fee calculation remains inside the atomic issuance transaction. | S19 |
-| R80 | catalog | USER RESOLUTION Q07 | Only admin may edit existing master catalog prices and enable/disable services. Reception cannot change them. Admin-only additions remain settled; backend authorization and UI restrictions must enforce this authority. | S20 |
+| R74 | checkout | USER RESOLUTION Q01 | Package-covered-only zero invoices are allowed, with at least one real line and backend-validated coverage. After issuance offer only Mark as paid, close PAID with existing settlement metadata, create no payment row and report zero collections. Positive uncovered fees use ordinary settlement. | S17 U01; S22 Q01 |
+| R75 | payments | SUPERSEDED LABELS / CURRENT NAMES APPROVED | The earlier choice to retain PENDING/DUE labels is superseded by the explicit S21 selection of UNPAID/PARTIALLY_PAID. These are the same four status meanings,with PAID and WAIVED unchanged. Historical sources retain their original wording. | S21 supersedes S18 label choice; S17 U02 |
+| R76 | exams | USER CLARIFICATION Q03 | Doctor examination is clinical protocol. Reception submits clinical entries and clicks Create Invoice; backend checks calendar-day gap and automatically includes the applicable fee in the returned invoice. No new manual examination gate is required. | S17 U03; S15 D-35; S16 M089–M099; S22 Q03 |
+| R77 | checkout | USER CORRECTION Q04 | No clinical-save-first/bill-later path in MVP: clinical records, applicable fees, invoice and lines commit atomically. S12 Q3's earlier exception is a source-summary error. Payment/waiver settlement follows separately after the invoice is returned. | S17 U04; S12 Q3 line 52; S22 Q04 |
+| R78 | cross | CURRENT DECISION AUTHORITY | Settled current rules agree across topic pages,register and tracker current columns. Historical evidence cannot override them. All seven review questions are settled,including new status names and service_id-only clinical identity; parked implementation audits remain open. | S18–S21 |
+| R79 | checkout | USER RESOLUTION Q05 | Before Create Invoice, review what was done today for clinical accuracy. The preview shows clinical records, without automatic fee amounts or invoice prices/totals. Existing last-visit context may remain visible. After successful atomic issuance, display the complete itemized invoice with automatic fees and total; settlement follows separately. Backend fee calculation remains inside the atomic issuance transaction. | S19; S22 Q05 |
+| R80 | catalog | USER RESOLUTION Q07 | Only admin may edit existing master catalog prices and enable/disable services. Reception cannot change them. Admin-only additions remain settled; backend authorization and UI restrictions must enforce this authority. | S20; S22 Q07 |
+| R81 | payments | USER APPROVED TERMINOLOGY | Use UNPAID,PARTIALLY_PAID,PAID,WAIVED. PENDING maps to UNPAID and DUE maps to PARTIALLY_PAID; behavior,terminal states and package-covered zero settlement remain unchanged. This is an explicit later rename,not a new state or completed enum migration. | S21; S22 Q02 |
+| R82 | clinical | USER RESOLUTION Q06 | Standalone clinical occurrence stores service_id and displays the catalog name through a join,without an extra clinical name snapshot. Invoice-line snapshots remain required. Aliases for alternate wording are catalog metadata direction; exact alias representation is not selected. | S21; S22 Q06 |
 
 ## Source coverage
 
@@ -298,7 +314,7 @@ All 176 positions are represented once in this range map; acknowledgement fragme
 | Waiver flag still unanswered | is_waived explicitly dropped; invoice status/metadata suffice | R51 |
 | Separate paid_at/waived_at/waived_by; all admin settlements require notes | Unified settled_at/settled_by; waiver_reason only mandatory on WAIVED, null on PAID | R52,R53 |
 | Stored billed/waived/outstanding header totals | Derive from immutable lines, real payments and terminal-waiver classification | R31,R54 |
-| Only PAID invoice totals count as collections | Use actual positive dated receipts, including Due and later-WAIVED invoices | R57 |
+| Only PAID invoice totals count as collections | Use actual positive dated receipts, including PARTIALLY_PAID and later-WAIVED invoices | R57 |
 | Absolute same-day recording; missed receipts cannot be recorded later | Later user accepts server-stamped entry-day reporting for delayed admin entry; no client backdating | R46 |
 | No separate created_at/received_at needed | Both kept, server-controlled and non-null, for distinct conceptual timestamps | R46 |
 | Cash/UPI/card/bank or split implies full payment | Cash/UPI only; Split is UI mode; both component amounts explicit; partial split allowed | R42–R44 |
@@ -317,7 +333,7 @@ All 176 positions are represented once in this range map; acknowledgement fragme
 
 ## Questions for user review
 
-Q01–Q04 are resolved/corrected in S17 and Q05 is resolved in S19. Q07 is resolved in S20. Only Q06 remains open among these review questions; technical audits remain separate. Original question IDs are retained for traceability.
+Q01–Q04 are resolved/corrected in S17 and Q05 is resolved in S19. Q07 is resolved in S20. S21 settles Q06 and explicitly renames the nonterminal states. All seven review questions are settled; technical audits remain separate. Original question IDs are retained for traceability.
 
 ### Q01 — Covered-only invoices
 
@@ -326,12 +342,12 @@ Q01–Q04 are resolved/corrected in S17 and Q05 is resolved in S19. Q07 is resol
 - **Answer:** A package-covered-only invoice may total zero, with at least one real line and validated coverage. After issuance, offer only Mark as paid; PAID closure uses settlement metadata, no payment row and zero collections. Positive uncovered amounts follow ordinary settlement.
 - **Current disposition:** CLOSED. The blanket zero-total prohibition is superseded for this case (R32–R33,R62,R74).
 
-### Q02 — Nonterminal invoice names
+### Q02 — Invoice status names — settled
 
-- **Classification:** Corrected approval attribution.
-- **Evidence:** S16 M105 assistant introduces ISSUED/PARTIALLY_PAID inside the store-versus-derive question; M106 user Yes; M107 assistant declares locked. S17 U02 records the user's challenge and original terminology.
-- **Answer:** The user explicitly confirms retaining PENDING,DUE,PAID,WAIVED in S18. No alternative label set is approved. The earlier compound Yes should not have been represented as a separately deliberate rename. No six-state model or enum migration is approved.
-- **Current disposition:** CLOSED / USER CONFIRMED (R37,R75; S18). Original source text remains intact.
+- **Classification:** Explicitly approved later rename.
+- **Evidence:** S21,user selects the suggested set.
+- **Answer:** UNPAID,PARTIALLY_PAID,PAID,WAIVED. UNPAID means no receipt; PARTIALLY_PAID means positive receipts with a remaining collectible balance. PAID and WAIVED retain their terminal meanings. The new names supersede the earlier PENDING/DUE labels; business behavior is unchanged.
+- **Current disposition:** CLOSED MVP (R37,R75,R81). This is four states; no database enum migration is performed.
 
 ### Q03 — Formal examination after 30+ days
 
@@ -352,15 +368,15 @@ Q01–Q04 are resolved/corrected in S17 and Q05 is resolved in S19. Q07 is resol
 - **Classification:** Resolved UX behavior.
 - **Evidence:** S19; S15 D-35; S16 M089–M099.
 - **Answer:** Before Create Invoice, review what was done today for clinical accuracy. The preview shows clinical records, without automatic fee amounts or invoice prices/totals. Existing last-visit context may remain visible. After successful atomic issuance, display the complete itemized invoice with automatic fees and total; settlement follows separately. Fee calculation remains inside atomic issuance. This supersedes the earlier requirement for a financial preview before issuance.
-- **Current disposition:** CLOSED MVP (R21,R79). Q06 remains unanswered; Q07 is settled by S20.
+- **Current disposition:** CLOSED MVP (R21,R79). Q06 is settled by S21; Q07 is settled by S20.
 
-### Q06 — Standalone clinical service-name snapshot
+### Q06 — Standalone clinical service identity — settled
 
-- **Classification:** Technical audit detail; still open, not contradictory approvals.
-- **Why asked:** A separate service-name snapshot on the standalone clinical occurrence was assistant-proposed; catalog identity and immutable invoice-line descriptions are already settled (S15 D-32; S16 M004–M009,M016–M019).
-- **Concrete question:** If Cervical traction is renamed later, must the standalone clinical record independently retain the old name, in addition to service_id and the invoice-line snapshot?
-- **Correction to the original question:** Common authenticated recorder/server timestamp conventions are supported by S16 M006/M008 and should not be reopened. Exact physical DDL remains audited.
-- **Current disposition:** USER REVIEW / A03; no answer inferred (R29,R47).
+- **Classification:** Resolved clinical storage choice.
+- **Evidence:** S21,following the user's service_id/join preference and rejection of hypothetical renaming as a snapshot requirement.
+- **Answer:** Store mandatory service_id and display the name through a catalog join. Do not add a copied clinical treatment-name snapshot. Immutable invoice-line descriptions and amounts remain separate and required. Common recorder/server timestamp conventions remain settled.
+- **Aliases:** The user mentions aliases as alternative wording on the catalog; exact field representation is schema work,not a reason to duplicate names on clinical occurrences.
+- **Current disposition:** CLOSED MVP (R29,R82). Exact DDL remains within A03; this business choice is not reopened.
 
 ### Q07 — Existing catalog price/availability permissions — settled
 
@@ -377,7 +393,7 @@ These are recorded unfinished questions, not requests to restart the audit or pa
 | --- | --- | --- | --- | --- |
 | A01 | Clinical examination records | Which actual clinical event represents an examination, including exam-only attendance, without a fabricated complaint-visit? | S11 Part I §8; S15 D-27; O02 | R15,R69 |
 | A02 | Reference ownership and API trust | Which patient/clinic/complaint identifiers should be stored versus derived, how is ownership constrained, and how should missing or contradictory client IDs be handled? | S16 M008; S15 §6; O13/O15 | R67 |
-| A03 | Anatomical normalization and standalone schema | How should shared regions, complaint-catalog anatomy, mandatory standalone anatomy, names, timestamps, and recorder fields be represented without redundant course data? | S15 D-28–D-32; Q06; O11 | R27,R28,R29,R68 |
+| A03 | Anatomical normalization and standalone schema | How should shared regions,complaint-catalog anatomy,mandatory standalone anatomy,service_id with joined names,and recorder/server timestamps be constrained without redundant course data? Q06 is settled; exact DDL remains open. | S15 D-28–D-32; Q06; O11 | R27,R28,R29,R68 |
 | A04 | Encounter recency and fee integrity | How do actual completed records map to any qualifying encounter, local dates and same-day behavior, first attendance, one charge per physical attendance, concurrent requests and historical/package visits? | S11 Part I §§4–5; S15 §6; O03/O13/O14 | R15,R16,R17,R20 |
 | A05 | Complaint lifecycle | Do complaints stay active indefinitely, how is explicit closure/inactivity handled, and what happens to an original complaint when a replacement is created? No closure policy is chosen. | S16 M144–M145,M171–M174; S15 D-40 | R08,R70 |
 | A06 | Invoice sources and constraints | What are the exact invoice/line/extra-fee fields, source FKs, ownership/completeness checks, and once-per-occurrence uniqueness mechanisms? Count logical sources, not every contextual FK. | O07/O13; N28; S15 D-13,D-17; S17 U01–U02 | R19,R31,R32,R34,R35 |
@@ -393,7 +409,7 @@ Future-only items remain separate: retail/product-sale modeling; formal refunds/
 
 ## Current issue dispositions
 
-These are current dispositions, matching the tracker. Earlier question/status text remains in the original archived sources and historical attribution; it is not repeated here as competing instruction.
+Current dispositions match the tracker. All seven review questions are closed. Historical source wording cannot override current decisions; engineering audits remain unfinished.
 
 | Issue | Current status | Current interpretation |
 | --- | --- | --- |
@@ -412,13 +428,13 @@ These are current dispositions, matching the tracker. Earlier question/status te
 | N13 | DEFERRED CORRECTION | Overcharge-correction workflows remain outside MVP. Ordinary final admin waiver is settled; only physical enforcement remains in A07. R40,R51–R56. |
 | N14 | AUDIT REQUIRED | Invoice-level final waiver, derived amount, settled_at/settled_by and waiver-only reason are decided. Exact SQL/authorization remains audited. R51–R55; A07. |
 | N15 | AUDIT REQUIRED | Positive paise, required recorder/server timestamps, immutability and deletion restriction are decided. DDL/security integration remains audited. R44–R50; A07. |
-| N16 | AUDIT REQUIRED | Cash/UPI, explicit split inputs and PENDING/DUE/PAID/WAIVED are settled. Exact API/form/error contract remains A09. S17 U02; R38,R42–R44. |
-| N17 | AUDIT REQUIRED | Admin may record repeated positive receipts while nonterminal. A full residual waiver,with or without earlier receipts,ends WAIVED and blocks further receipts. No partial waiver remaining DUE. Exact SQL remains A07. R36,R39,R55. |
+| N16 | AUDIT REQUIRED | Cash/UPI, explicit split inputs and UNPAID/PARTIALLY_PAID/PAID/WAIVED are settled. Exact API/form/error contract remains A09. S17 U02; R38,R42–R44. S21 terminology. |
+| N17 | AUDIT REQUIRED | Admin may record repeated positive receipts while nonterminal. A full residual waiver,with or without earlier receipts,ends WAIVED and blocks further receipts. No partial waiver remaining PARTIALLY_PAID. Exact SQL remains A07. R36,R39,R55. S21 terminology. |
 | N18 | CLOSED MVP | created_at and received_at are non-null server timestamps. No client backdating; delayed entry belongs to the recording day. R46. |
 | N19 | AUDIT REQUIRED | Idempotency requirement retained; key/hash/invoice mechanism provisional. Source uniqueness, invoice locking and replay are distinct controls. R35,R41,R60–R61; A08. |
 | N20 | AUDIT REQUIRED | Derived money formulas and no extra stored monetary authorities are locked. Exact views/functions and safe aggregates remain audited. R54,R66; A09. |
-| N21 | AUDIT REQUIRED | Standalone identity,anatomy and common recording conventions are settled. Additional clinical service-name snapshot only remains Q06; final DDL A03. S16 M006,M008; S17 Q06. |
-| N22 | AUDIT REQUIRED | Compare actual schema with decided immutable lines,payments,settlement metadata and PENDING/DUE/PAID/WAIVED states before migrations. No migration performed. R37,R53,R72; A10. |
+| N21 | AUDIT REQUIRED | Standalone service_id with joined name,no clinical name snapshot,mandatory anatomy and recording conventions are settled. Exact physical DDL remains A03. S21; R25–R29,R82. |
+| N22 | AUDIT REQUIRED | Compare actual schema with decided immutable lines,payments,settlement metadata and UNPAID/PARTIALLY_PAID/PAID/WAIVED states before migrations. No migration performed. R37,R53,R72; A10. S21 terminology. |
 | N23 | OPEN FUTURE | Old visit_services creation metadata gap was identified conditionally; no new columns preapproved. S06 §5; S08 §4. |
 | N24 | DEFERRED FUTURE | Paid financial corrections/refunds/credit and retroactive repair remain outside MVP. S09 §§1–2,7. |
 | N25 | DEFERRED FUTURE | Automated old-debt alerts and receipt allocation across invoices remain excluded. S06 N25. |
@@ -431,18 +447,18 @@ These are current dispositions, matching the tracker. Earlier question/status te
 | N32 | PARKED | Refund/transfer/extension boundaries for packages were not individually specified; confirm in dedicated package design, not this consolidation. A11. |
 | N33 | PARKED | Complaint deselection/procedure-cleanup validation remains explicitly parked. A13; S09 §7. |
 | N34 | CLOSED MVP | Q01 resolved: permit package-covered-only zero invoice,validate coverage,at least one line; after issuance only Mark as paid,no payment row,zero collections. Positive uncovered fee uses normal settlement. S17 U01; R74. |
-| N35 | CLOSED MVP | Q02: the user explicitly reconfirmed PENDING,DUE,PAID,WAIVED. No alternative labels are approved or applied. S18; R37,R75. |
+| N35 | CLOSED MVP | Q02 settled: UNPAID,PARTIALLY_PAID,PAID,WAIVED are explicitly approved. The earlier PENDING/DUE labels are superseded; business behavior remains unchanged. S21; R37,R75,R81. |
 | N36 | CLOSED CLARIFICATION | Q03: doctor assessment is clinical protocol. Backend Create Invoice checks gap and automatically includes fees in returned invoice; no new receptionist gate. Clinical event model remains audited. S17 U03; R76. |
 | N37 | CORRECTED | Q04: no clinical-save-first/bill-later MVP path. Clinical entries,fees,invoice and lines are one atomic issuance transaction; payment separate after return. S12 Q3 exception was a source-summary error. S17 U04; R77. |
 | N38 | CLOSED MVP | Q05 settled: clinical preview focuses on what was done today; no automatic fees or invoice prices/totals before Create Invoice. Show itemized fees and total on returned issued invoice. Existing last-visit context may remain. Fee calculation stays inside atomic issuance. S19; R21,R79. |
-| N39 | USER REVIEW | Q06 narrowed: must standalone clinical occurrence retain its own historical service name in addition to service_id and frozen invoice-line description? Common recorder/server timestamps already settled; exact DDL audited. S16 M006,M008; S17 Q06. |
+| N39 | CLOSED MVP | Q06 settled: mandatory service_id with catalog-name join; no extra clinical treatment-name snapshot. Invoice-line snapshots remain required; exact clinical DDL remains A03. S21; R29,R82. |
 | N40 | CLOSED MVP | Q07 settled: only admin may edit existing master catalog prices or enable/disable services. Reception cannot. Admin-only additions remain settled; exact backend authorization enforcement remains audited. S20; R10,R80. |
 | N41 | AUDIT REQUIRED | A01 — Clinical examination records: Which actual clinical event represents an examination, including exam-only attendance, without a fabricated complaint-visit? Source: S11 Part I §8; S15 D-27; O02. |
 | N42 | AUDIT REQUIRED | A02 — Reference ownership and API trust: Which patient/clinic/complaint identifiers should be stored versus derived, how is ownership constrained, and how should missing or contradictory client IDs be handled? Source: S16 M008; S15 §6; O13/O15. |
-| N43 | AUDIT REQUIRED | A03 — Anatomical normalization and standalone schema: How should shared regions, complaint-catalog anatomy, mandatory standalone anatomy, names, timestamps, and recorder fields be represented without redundant course data? Source: S15 D-28–D-32; Q06; O11. |
+| N43 | AUDIT REQUIRED | A03: implement anatomical normalization and exact standalone service_id,ownership,recorder/server-timestamp constraints. Joined service name with no clinical name snapshot is settled; alias representation remains schema work. S21; R27–R29,R68,R82. |
 | N44 | AUDIT REQUIRED | A04 — Encounter recency and fee integrity: How do actual completed records map to any qualifying encounter, local dates and same-day behavior, first attendance, one charge per physical attendance, concurrent requests and historical/package visits? Source: S11 Part I §§4–5; S15 §6; O03/O13/O14. |
 | N45 | PARKED | A05 — Complaint lifecycle: Do complaints stay active indefinitely, how is explicit closure/inactivity handled, and what happens to an original complaint when a replacement is created? No closure policy is chosen. Source: S16 M144–M145,M171–M174; S15 D-40. |
-| N46 | AUDIT REQUIRED | A06: exact invoice,line,extra-fee source FKs,ownership,completeness and once-per-occurrence constraints. Implement resolved covered-only zero exception and original four status names. S17 U01–U02; R19,R31–R35. |
+| N46 | AUDIT REQUIRED | A06: exact invoice,line,extra-fee source FKs,ownership,completeness and once-per-occurrence constraints. Implement resolved covered-only zero exception and UNPAID, PARTIALLY_PAID, PAID and WAIVED status names. S17 U01–U02; R19,R31–R35. |
 | N47 | AUDIT REQUIRED | A07: exact DDL,metadata,state enforcement,RLS/roles,row-locking and no-overpayment paths remain audited. Catalog master price/availability edits are admin-only; authority is settled and enforcement remains to implement. S20; R36–R56,R80. |
 | N48 | AUDIT REQUIRED | A08 — Idempotency and uncertain outcome: What request/key scope, canonical payload hash, retention, concurrency, replay and recovery are needed for checkout and payment after a lost response? Proposed key/hash/invoice storage is not final. Source: O14; N19; S15 D-24. |
 | N49 | AUDIT REQUIRED | A09 — Payment API, reporting and indexes: What payload/confirmation/cancel/error states, financial views/functions and payment indexes implement the settled behavior and recording-day reports without duplicate sums? Source: O14–O16; N16,N20,N31; S14 §8. |
@@ -450,8 +466,6 @@ These are current dispositions, matching the tracker. Earlier question/status te
 | N51 | PARKED | A11: offering/prices,day/session meaning,purchase/activation/waiver,coverage/redemption,expiry,imports and concurrent use remain in package chat. Covered-only zero-total exception is resolved. Refund/transfer/extension boundaries not specified. S17 U01. |
 | N52 | AUDIT REQUIRED | A12 — Historical schema dispositions: Audit dependency/data implications before dropping or retaining vitals, removing alerts, or changing timeline_events. Existing 16-table notes are historical, not a fresh deployment inventory. Source: N09–N11; S06 §5; S08 §4. |
 | N53 | PARKED | A13 — Parked frontend cleanup: What should happen to selected procedures when a complaint is deselected? The earlier cleanup/validation question remains explicitly parked. Source: N33; S09 §7. |
-
-Historical parent O01–O21 and G01–G15 identifiers remain traceable through the source inventory,coverage maps and archived logs. Their old status does not override the current register.
 
 ## Completion and validation boundary
 

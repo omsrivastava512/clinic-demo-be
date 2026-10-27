@@ -18,9 +18,10 @@ Current clinical decisions as of 27 October 2026. Settled rules below are author
 
 - **Locked:** clinical records, applicable fees, invoice and lines save in one atomic MVP issuance transaction. No clinical-save-first/bill-later path is permitted. Settlement follows separately after the complete invoice is returned (R22–R24,R77).
 
-## Pending review and audits
+- **Locked / Q06 settled:** standalone clinical occurrences store the mandatory service_id and display the service name through a catalog join. No separate clinical treatment-name snapshot is required. Invoice lines retain their own frozen descriptions and amounts; common server recorder/timestamp conventions remain settled (R29,R82; S21).
 
-- **Q06 narrowed:** common authenticated recorder/server timestamp conventions are settled (S16 M006/M008); physical constraints remain audited. The remaining question is whether the standalone clinical occurrence needs its own historical service-name snapshot in addition to service_id and the already immutable invoice-line description. This is a schema-audit detail, not a contradictory approved policy.
+## Implementation audits
+
 - **A01–A03:** actual examination representation, cross-schema reference ownership/normalization, and anatomical catalog consistency remain open for audit. Do not fabricate a visit FK or assert live schema from assistant reports.
 - Minimum standalone registration/documentation and exact field names, source links, authorization, and ownership checks remain implementation/audit work. A user-mentioned clinician is a workflow actor, not approval of new database roles.
 - No generic physical-session table is approved. Distinct entry forms do not force distinct invoices or transactions.
@@ -44,8 +45,4 @@ Current rules and source references: [reconciliation register](reconciliation-20
 
 Related: [catalog and pricing](service-catalog-and-branch-pricing.md), [checkout](checkout-and-invoice-lines.md), [examination fees](examination-fees.md).
 
-Current authority: [user instructions and consistency corrections](history/clinic_module2_current_decision_authority_2026-10-27.md). Q01–Q05 and Q07 are settled; Q06 remains open. Earlier answers are preserved in [S17](history/clinic_module2_reconciliation_resolutions_2026-10-27.md).
-
-Latest answer: [clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md).
-
-Catalog authority: [admin-only prices and availability](history/clinic_module2_admin_catalog_authority_2026-10-27.md). Q07 is closed.
+Current checkpoint: [consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md). All seven review questions are settled; implementation and parked audits remain unfinished.

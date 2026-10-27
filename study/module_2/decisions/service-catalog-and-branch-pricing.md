@@ -25,7 +25,7 @@ When a second clinic is introduced, deliberately migrate the original clinic's c
 
 ## Audit and design work still open
 
-- Exact single-clinic catalog/rate columns, where the two flat therapy rates are configured, price validation, and price-selection consistency during concurrent edits.
+- Exact single-clinic catalog/rate columns, where the two flat therapy rates are configured, price validation, and price-selection consistency during concurrent edits. The user mentions an aliases field for alternative wording; exact representation remains schema work and does not require a copied clinical service name (S21).
 - Clinical eligibility/classification of bundled versus independently purchased services; a shared catalog identity alone does not determine its billing context.
 - Exact database authorization and ownership enforcement for the settled admin-only price/availability rule. Business authority is closed; RLS/API enforcement remains audited.
 - Future clinic ownership, missing-row meaning, inheritance/default precedence, new-service rollout, new-branch provisioning, and temporary/global disablement.
@@ -38,8 +38,4 @@ Current rules and source references: [reconciliation register](reconciliation-20
 
 Related: [clinical records](clinical-records.md), [checkout](checkout-and-invoice-lines.md), [payments](payments-and-settlement.md).
 
-Current authority: [user instructions and consistency corrections](history/clinic_module2_current_decision_authority_2026-10-27.md). Q01–Q05 and Q07 are settled; Q06 remains open. Earlier answers are preserved in [S17](history/clinic_module2_reconciliation_resolutions_2026-10-27.md).
-
-Latest answer: [clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md).
-
-Catalog authority: [admin-only prices and availability](history/clinic_module2_admin_catalog_authority_2026-10-27.md). Q07 is closed.
+Current checkpoint: [consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md). All seven review questions are settled; implementation and parked audits remain unfinished.

@@ -1,6 +1,6 @@
 # Module 2 decisions
 
-The six topic pages state the current Module 2 decisions as of 27 October 2026. Each settled subject has one operative rule. Pending questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
+The six topic pages state the current Module 2 decisions as of 27 October 2026. Each settled subject has one operative rule. Unfinished questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
 
 ## Topic map
 
@@ -16,15 +16,17 @@ The six topic pages state the current Module 2 decisions as of 27 October 2026. 
 ## Reading authority
 
 - Use the six topic pages and the reconciliation decision register for current rules.
-- Q06 and the parked audits are unfinished; no answer is inferred. Q07 catalog price/availability authority is settled: admin only.
+- All seven review questions Q01–Q07 are settled. Parked technical audits and dedicated package design remain unfinished; no implementation completion is implied.
 - The tracker's Decision Register columns G–I contain current status, interpretation and sources. Columns A–F preserve historical attribution. Table Audit is a historical schema inventory, not current permission or schema design.
 - Source inventories, coverage maps and override comparisons explain provenance; old wording there cannot override a current decision. Research is background material, not clinic policy.
 
 ## Current checkpoint
 
+The [short consolidated history log](history/clinic_module2_seven_review_answers_2026-10-27.md) records all seven final answers and their explanations together. The topic pages already contain these decisions; this pass verifies coverage and links the summary.
+
 The active non-audit business discussion in the export reaches closure: complaint classification is manually assigned and permanent; charges are flat per complaint-visit; services are catalog-backed; admin additions are required. This does not close exact schema, source/ownership, API/RLS, concurrency, idempotency, migration or validation work. Packages and complaint lifecycle remain in separate discussions.
 
-Use the [reconciliation and question register](reconciliation-2026-10-27.md) for all source mappings, overrides and pending questions. Q01–Q04 are resolved/corrected by the [user follow-up](history/clinic_module2_reconciliation_resolutions_2026-10-27.md). Q05 is settled: clinical preview first, automatic charges shown on the returned issued invoice. Q06 remains a standalone clinical service-name snapshot question. Q07 is settled: only admin may edit existing master prices and enable/disable services. Exact authorization enforcement remains audited. A01–A13 carry the remaining audit and parked work, including older cleanup and UI questions.
+Use the [reconciliation and question register](reconciliation-2026-10-27.md) for all source mappings, overrides and pending questions. Q01–Q04 are resolved/corrected by the [user follow-up](history/clinic_module2_reconciliation_resolutions_2026-10-27.md). Q05 is settled: clinical preview first, automatic charges shown on the returned issued invoice. Q06 is settled: standalone clinical records use service_id with a joined catalog name,without a copied clinical name. Q07 is settled: only admin may edit existing master prices and enable/disable services. Exact authorization enforcement remains audited. A01–A13 carry the remaining audit and parked work, including older cleanup and UI questions.
 
 ## Established changes
 
@@ -34,7 +36,7 @@ Use the [reconciliation and question register](reconciliation-2026-10-27.md) for
 - One-clinic services pricing/availability replaces launch-time branch configuration. Only admin may edit master prices or enable/disable services; reception cannot. Ordinary therapy remains flat, complaint-based, with no negotiated-rate engine.
 - Calendar return bands are 0–9 days no gap fee, 10–29 ₹150, and 30+ ₹350, never stacked; first encounter ₹350. extra_fees is a charge source, not proof of an actual examination.
 - Issued lines and saved payments are immutable. Retroactive correction/append/voiding remains outside MVP.
-- Four invoice states are PENDING, DUE, PAID and WAIVED. The user explicitly reconfirmed retaining them (S18).
+- Four invoice states are UNPAID, PARTIALLY_PAID, PAID and WAIVED. The user explicitly approved this naming set in S21; business behavior is unchanged.
 - Clinical entries, applicable automatic fees, invoice and lines commit atomically; no clinical-save-first/bill-later exception. The invoice is returned before separate settlement.
 - Pre-issuance preview focuses on clinical records and accuracy. Automatic fees and invoice prices/totals first appear on the returned issued invoice (Q05; S19).
 - Package-covered-only zero invoices are allowed. After issuance, offer only Mark as paid; no payment row or collections are created.
@@ -57,9 +59,11 @@ The five former upcoming logs are now archived below. The updated MVP log and JS
 | S15 | [module2_mvp_chat_decision_log_2026-10-26.md](history/module2_mvp_chat_decision_log_2026-10-26.md) | Earlier reconstruction plus later D-26–D-44 reconciliation |
 | S16 | [chatgpt-full-transcript-1793041621482.json](history/chatgpt-full-transcript-1793041621482.json) | 176-message primary export; displaced opening replies and incomplete Show more text |
 | S17 | [User reconciliation answers and corrections](history/clinic_module2_reconciliation_resolutions_2026-10-27.md) | Subsequent Q01–Q04 resolutions/corrections; Q05–Q07 explanations |
-| S18 | [Current decision authority](history/clinic_module2_current_decision_authority_2026-10-27.md) | One current rule per settled subject; original status names retained |
-| S19 | [Clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md) | Q05 settled; Q06 discussion and Q07 authority remain open |
-| S20 | [Admin catalog authority](history/clinic_module2_admin_catalog_authority_2026-10-27.md) | Q07 settled: admin-only prices and availability; Q06 remains open |
+| S18 | [Current decision authority](history/clinic_module2_current_decision_authority_2026-10-27.md) | Current-file authority; earlier label choice superseded by S21 |
+| S19 | [Clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md) | Q05 clinical preview and fee visibility |
+| S20 | [Admin catalog authority](history/clinic_module2_admin_catalog_authority_2026-10-27.md) | Q07 admin-only prices and availability |
+| S21 | [Status names and standalone identity](history/clinic_module2_status_names_and_standalone_identity_2026-10-27.md) | Approved UNPAID/PARTIALLY_PAID/PAID/WAIVED; Q06 service ID with joined name; all seven review questions settled |
+| S22 | [Consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md) | Compact final answers and owner explanations for Q01–Q07; no new policy |
 
 The upcoming staging directory has no remaining consolidated source files. Future incoming records must be compared with the current topics rather than treated as automatic replacements.
 
@@ -71,8 +75,4 @@ Later explicit decisions override earlier statements only on the subjects addres
 
 The research directory remains background material and is not authority for clinic requirements. Documents outside this decisions directory, application code, database schema and Git history are outside this consolidation.
 
-Current follow-up: [user instructions on current decision authority](history/clinic_module2_current_decision_authority_2026-10-27.md). Q01–Q05 and Q07 are settled; Q06 remains open.
-
-Latest answer: [clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md).
-
-Catalog authority: [admin-only prices and availability](history/clinic_module2_admin_catalog_authority_2026-10-27.md). Q07 is closed.
+Current checkpoint: [consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md). All seven review questions are settled; implementation and parked audits remain unfinished.
