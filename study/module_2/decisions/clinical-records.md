@@ -1,39 +1,51 @@
 # Clinical records
 
-Current discussion view incorporating the supplied October 25 records and scope continuation. Design decisions do not establish deployed behavior or authorize implementation.
+Current clinical decisions as of 27 October 2026. Settled rules below are authoritative for the proposed MVP; pending audits remain explicitly marked. These decisions do not establish deployed schema. Evidence and current issue dispositions are in the [reconciliation register](reconciliation-2026-10-27.md).
 
 ## Current position
 
-- **Settled:** one treated complaint on an occasion produces one `visit`. Treating two complaints produces two complaint-visits, even during one physical attendance.
-- **Settled:** `visit_services` records each procedure actually performed within a complaint-visit, including routine procedures bundled in flat therapy. These are clinical occurrences, distinct from catalog definitions and issued charges.
-- **Settled in the proposed model:** ordinary complaint therapy is flat-fee. Its performed procedures have no separate financial amount or charge-status fields; one therapy invoice line comes from the visit. See [checkout](checkout-and-invoice-lines.md).
-- **Confirmed real case:** someone may receive individually purchased traction without ordinary complaint-course care. Cupping can also be separately charged, including alongside ordinary therapy.
-- **Settled conceptual cardinality:** each independently performed standalone treatment has its own occurrence and invoice line. Two actual performances remain distinct, even for the same procedure/body region. Individual standalone sessions are not presold; prepaid packages remain separate.
-- **Settled MVP scope, October 25:** no retroactive clinical correction/voiding workflow. The earlier open→optional voiding scope was subsequently deferred outside MVP; do not pre-add unused void columns. A financial waiver does not correct a false clinical record.
+- **Locked:** one treated complaint on an occasion produces one complaint-specific visit. Two treated complaints during one physical attendance produce two visits and two therapy lines on the same checkout invoice (R04).
+- **Locked:** ordinary therapy has a flat charge per complaint-visit. visit_services records the actual bundled procedures; those procedures do not have separate ordinary financial amounts, charge-status fields, or extra zero-value procedure lines. The ordinary billing_mode fork is dropped (R04–R05).
+- **Locked:** the clinician manually assigns ROUTINE or REHAB when creating the patient's complaint. Store that classification on the complaint and use it for subsequent visits; do not infer it automatically from complaint_catalog or reselect it per attendance (R07).
+- **Locked:** classification is permanent. A different classification requires a new complaint while preserving the original history. Closure of the original is **parked for audit**; no mandatory or automatic closure is approved (R08, R70).
+- **Locked direction:** every patient complaint references complaint_catalog; no uncataloged free-text complaint identity. Derive complaint anatomy through that catalog in the discussed model. Narrative clinical notes remain distinct. Shared body-region storage and migration remain audited (R11, R68).
+- **Locked:** admin can add a missing complaint-catalog entry before registering the patient's complaint, with an append-only who/when/what trail for the addition. General catalog versioning or a system-wide audit schema is not selected (R12).
+- **Locked:** routine and standalone service identities come from services. An individually purchased traction/cupping treatment is a separate performed occurrence; the same service can be bundled in ordinary care in another context (R10, R26).
+- **Locked:** a standalone occurrence does not require a fabricated complaint-visit and has no complaint_course_id link (R27).
+- **Locked requirement:** every standalone treatment identifies its body region, such as cervical versus lumbar traction. A shared body_regions table versus another representation remains an architectural audit question (R28).
+- **Locked:** one actual standalone performance produces one immutable timestamped occurrence and its own invoice line. Two actual performances remain distinct. Standalone care delivered with ordinary therapy shares the checkout invoice with separate lines. Individual standalone sessions are not presold; prepaid packages remain a separate subject (R25–R26).
+- **Locked MVP scope:** no physical deletion or retroactive clinical correction/voiding workflow is approved. A financial waiver does not correct a false clinical record (R30, R63).
 
-## Open questions
+- **Locked:** clinical records, applicable fees, invoice and lines save in one atomic MVP issuance transaction. No clinical-save-first/bill-later path is permitted. Settlement follows separately after the complete invoice is returned (R22–R24,R77).
 
-- **O11:** final standalone-occurrence table/name, required clinical fields, optional complaint association, and precise V1 boundary. Do not fabricate a complaint or visit to satisfy an FK.
-- Minimum registration and clinical documentation for standalone care; clinical authorization, referral, treatment site and safety information remain to define from actual practice.
-- Combined versus separate entry flows and invoices remain open. Distinct forms do not imply distinct transactions.
-- No generic physical-session table is approved. Clinical entry is usually by reception, but clinicians may enter records; full checkout permissions are not specified.
+## Pending review and audits
+
+- **Q06 narrowed:** common authenticated recorder/server timestamp conventions are settled (S16 M006/M008); physical constraints remain audited. The remaining question is whether the standalone clinical occurrence needs its own historical service-name snapshot in addition to service_id and the already immutable invoice-line description. This is a schema-audit detail, not a contradictory approved policy.
+- **A01–A03:** actual examination representation, cross-schema reference ownership/normalization, and anatomical catalog consistency remain open for audit. Do not fabricate a visit FK or assert live schema from assistant reports.
+- Minimum standalone registration/documentation and exact field names, source links, authorization, and ownership checks remain implementation/audit work. A user-mentioned clinician is a workflow actor, not approval of new database roles.
+- No generic physical-session table is approved. Distinct entry forms do not force distinct invoices or transactions.
+- Complaint closure/inactivity (**A05**) and complaint deselection/procedure-cleanup validation (**A13**) remain explicitly parked.
+
+See [all review questions and audit work](reconciliation-2026-10-27.md#questions-for-user-review).
 
 ## Future correction discussion and historical schema review
 
-If voiding is developed later, admin-only authority, independent child-procedure void, effective parent-visit cascade, no Paid-linked void and a collected-money floor were conditionally agreed. The four discussed void fields, cascade mechanism, metadata constraints and waiver interaction are not MVP schema instructions. The audit identifies indirect invoice links and false records trapped behind Paid lock as unresolved risks.
+If voiding is developed later, the archived conditional discussion retains admin-only authority, individual-child invalidation, effective parent/child consistency, Paid-link blocking, and a collected-money floor. Triggers, metadata constraints, undo, and waiver-aware financial interactions remain unselected. These are future conditions, not MVP schema instructions (R64).
 
-The historical 16-table review records vitals deferred with drop-versus-dormant open, alerts removal intent pending dependency/data checks, and timeline-events purpose to investigate. These are documented dispositions, not tables removed or a verified deployed inventory. Complaint-course/note correction remains future design. Complaint deselection/procedure-cleanup validation was parked, not approved as a new interface requirement.
+The earlier 16-table review records vitals deferred with drop-versus-dormant open, alerts removal intent pending dependency/data checks, and timeline_events purpose to investigate. No table has been removed or verified against deployment through this reconciliation (R65).
 
-## Reasoning and scenarios
+## Scenarios
 
-Routine ultrasound during knee therapy remains a clinical procedure beneath a flat-billed knee visit. Independently purchased traction is a separate performed event; the catalog identity alone does not determine billing context. Two complaint-visits and an extra cupping occurrence can occur in one attendance without proving a shared session entity is needed.
+Routine ultrasound during knee therapy is a clinical procedure beneath one flat-billed knee visit. Independently purchased traction is a separate performed event with anatomy. Treating knee and shoulder produces two complaint-visits; a separate cupping occurrence can share their invoice.
 
-## Changes in position and sources
+## Evidence
 
-- [Parent register](history/clinic_billing_decision_log_2026-10-23.md), §§1–2 and 13: clinical meanings and earlier flat/per-procedure policy.
-- [Successor addendum](history/clinic_module2_successor_addendum_2026-10-23_1726_IST.md), §§2–5: vocabulary, standalone cases S1–S7, candidate fields and workflows. These alternatives are retained, not all approved.
-- Successor §§11.1–11.2, 11.5 and 12 supersede the ordinary billing-mode fork and chargeable routine-procedure source. Final occurrence schema remains open.
-- [October 25 A1](history/clinic_module2_checkout_payments_voiding_addendum_2026-10-25_164648_IST.md), §§4–6: field discussion, historical table audit and validity/reporting dependencies. [A2](history/clinic_module2_successor_addendum_2026-10-25_171327_IST.md), §§1–2, 6: optional scope and conditional safeguards.
-- [A3 audit](history/clinic_module2_audit_gap_appendix_2026-10-25_184849_IST.md), G03, G06–G15: source, financial and clinical-history conflicts. [Scope continuation](history/clinic_module2_scope_decision_addendum_2026-10-25.md), §§1–2, 7, supersedes optional MVP voiding with future deferral while retaining the conditional reasoning.
+Current rules and source references: [reconciliation register](reconciliation-2026-10-27.md#decision-register). Original versions are in [history/](history/); their wording does not override the current rules above.
 
-Related: [catalog](service-catalog-and-branch-pricing.md), [examinations](examination-fees.md), [packages](packages.md).
+Related: [catalog and pricing](service-catalog-and-branch-pricing.md), [checkout](checkout-and-invoice-lines.md), [examination fees](examination-fees.md).
+
+Current authority: [user instructions and consistency corrections](history/clinic_module2_current_decision_authority_2026-10-27.md). Q01–Q05 and Q07 are settled; Q06 remains open. Earlier answers are preserved in [S17](history/clinic_module2_reconciliation_resolutions_2026-10-27.md).
+
+Latest answer: [clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md).
+
+Catalog authority: [admin-only prices and availability](history/clinic_module2_admin_catalog_authority_2026-10-27.md). Q07 is closed.

@@ -1,41 +1,67 @@
 # Payments and settlement
 
-Current discussion view incorporating the supplied October 25 payment addenda and scope continuation. These record approved behavior, not deployed schema or implementation. Exact chronology and subject-specific precedence are documented in the [comparison guide](history/2026-10-25-chronology-and-overlap.md).
+Current payment decisions as of 27 October 2026. Settled rules below are authoritative for the proposed MVP; exact schema, authorization and API work remain audited. Evidence and current issue dispositions are in the [reconciliation register](reconciliation-2026-10-27.md).
 
-## Current position
+## State meanings and authority
 
-- **Settled concept:** original billed amount, actual receipts, authorized waiver/write-off and outstanding balance are separate facts. Outstanding = billed − collected − authorized adjustments within the modeled no-refund case.
-- **Settled:** a new invoice begins Pending. Reception may collect full payment → Paid, choose Pay Later → Pending, or collect an initial partial payment → Due. Reception cannot waive.
-- **Settled:** later action on older Pending/Due invoices belongs to admin/owner. Admin may collect money and settle with an authorized waiver of the remainder. Paid does not mean the entire original bill was received in cash.
-- **Settled on October 25:** admin can record further positive receipts on an older Due invoice and leave the rest Due, repeatedly without an arbitrary repayment-count limit. For a ₹500 bill with ₹200 collected, another ₹100 means ₹300 collected and ₹200 still Due; it does not automatically waive the remainder.
-- **Settled concept:** one common `payments` table with one row per actual strictly positive receipt. Payment insertion and any required invoice-state/settlement change are atomic; exact DDL, concurrency and replay controls remain open.
-- **Settled:** each positive tender specifies a method; split payment on one invoice uses separate rows, such as cash plus UPI. Reception's initial zero receipt means Pay Later/Pending, never a fake ₹0 receipt or zero-payment Due action. Partial actual collection means Due; full collection means Paid.
-- **Settled MVP:** successfully saved payments are immutable at Pending, Due and Paid. No edit, reversal or in-app correction after saving. Staff verify the actual amount before submission; saved mistakes have no in-product repair in MVP.
-- **Settled MVP:** same-day payment recording with automatic system timestamp; no manual backdating, historical date selection or retrospective entry. Today's receipt on an older invoice counts toward today's collection. A missed receipt cannot be entered retrospectively under this MVP policy.
-- **Settled:** only admin/owner may waive outstanding collection, with a mandatory reason. This ordinary settlement waiver does not correct issued charge amounts or false clinical records.
-- **Settled:** no ₹0 receipt or payment row for a waiver. Example: ₹500 billed, ₹200 received earlier, ₹300 waived at final settlement → Paid, collected ₹200.
-- **Settled:** original issued charges stay frozen even unpaid; final Paid locks charges, receipts, methods and waivers, including for the owner in MVP.
-- **Settled MVP:** no distinct numbered/printed/sent payment receipt artifact. Backend payment recording remains required. Only confirmed backend save permits UI success, showing amount, methods and current balance/status; failed or uncertain save must not report success.
-- Old debt is handed to admin manually. Automatic chasing, unallocated-money wallet and automated cross-invoice allocation are deferred.
+- **Locked:** PAID means the full billed balance is discharged through actual receipts, or through the explicitly permitted package-covered-only zero-total settlement. WAIVED means admin forgave the entire remaining collectible amount, including after partial receipts. Both are terminal with zero collectible outstanding and no subsequent receipts, waiver, or state mutation (R36,R74).
+- **Locked:** retain four invoice states: PENDING (issued with no receipt), DUE (partially collected with a remaining balance), PAID and WAIVED (R37,R75; S18).
+- **Locked:** for a positive-total invoice, reception may record the initial actual full or partial receipt: no receipt means Pay Later/PENDING; partial actual collection leaves DUE; full actual collection means PAID. A package-covered-only zero invoice instead offers only Mark as paid after issuance, without any payment row (R38,R74).
+- **Locked:** admin/owner may record repeated additional positive receipts on older Due invoices, with no arbitrary repayment-count cap, leaving the residual due. Reception communicates old-debt collections to admin manually; no automatic cross-invoice allocation or wallet is approved (R39).
+- **Locked:** only admin/owner may waive; hide waiver controls from unauthorized staff and enforce authority on the backend. Reception cannot waive or autonomously change older invoices (R40).
 
-## Open questions
+## Payment records and transaction boundary
 
-- **O09/O10:** can a partial waiver leave the invoice Due, or is waiver only part of final settlement? Detailed admin Pending-resolution and zero-receipt/full-waiver edge cases are not all closed by the repeated-receipt decision.
-- Exact method enum, form layout, waiver classification/storage and actor/time evidence, clinician privileges and backend validation. Split tender, mandatory waiver reason and saved-receipt immutability are no longer open business questions.
-- **O14–O16:** lock/RLS enforcement, idempotency, concurrent collection/overcollection prevention, local reporting cutoff and balance/status consistency. Automatic timestamps do not independently choose all time-zone details.
-- **Future only:** late-entry exceptions, saved-payment reconciliation and refund/credit/retroactive correction workflows. No permission for these is inferred from ordinary waiver support.
+- Invoice issuance commits and the invoice is returned before settlement. Payment rows and the required valid settlement transition save together in a separate transaction (R24).
+- One positive actual tender component is one payment row; each row belongs to exactly one invoice, and an invoice may have zero, one, or many payments (R44–R45).
+- Use BIGINT integer paise. Payments must be strictly positive; zero collection and waived money create no payment rows (R48). The package-covered-only zero invoice has a separate Mark as paid closure after issuance, with settled_at/settled_by and no receipt or waived amount; ordinary no-receipt Pay Later does not apply to that case (S17 U01).
+- Only Cash and UPI are accepted backend enum values; exact SQL casing is not selected here. Split is a UI input mode. Operator enters both amounts explicitly; partial split may leave a balance and must not imply full payment (R42–R43).
+- Split components and the state update are atomic: failure of any part rolls back the entire settlement. No positive tender component is silently dropped (R44).
+- Do not collect more than current collectible outstanding. Backend enforcement under concurrency is required; exact function/locking/authorization implementation remains audit work (R41).
+- Payment recorded_by is mandatory and derived from authenticated backend identity rather than a React-supplied recorder ID. The user baseline identifies profiles(id) UUID authentication; actual FK/default/security integration remains audited (R47).
+- Keep both created_at and received_at as server-controlled TIMESTAMPTZ NOT NULL with server defaults. Neither may be client-backdated in MVP (R46).
+- **Accepted recording limitation:** if staff/admin record physically received money later, software reports it on the server-recording day. Distinct historical receipt-time support is outside MVP; client backdating is not permitted.
+- Saved payments cannot be edited, deleted, reversed, or retrospectively corrected, even on nonterminal invoices. Invoice deletion is prohibited on frontend/backend; payment invoice FKs use ON DELETE RESTRICT (R49–R50).
 
-## Reporting and reasoning
+## Final waiver and metadata
 
-Distinguish bill issuance, collection and final settlement. Cash collections include positive receipts on still-Due invoices and use their system-recorded local collection day under the same-day MVP rule. Older separate received-at/recorded-at and late-entry proposals are historical, not backdating permissions. Excluding Pending from a settled-invoice report does not exclude it from outstanding reports or exclude Due receipts from cash collections. Revenue, cash, waiver totals and invoice counts are different measures. Saved entry errors can leave incorrect collections without an in-product repair; that limitation is recorded, not solved.
+- Waive the whole invoice's residual collectible balance, not individual invoice lines. A partial waiver that leaves the invoice Due is outside this MVP model (R51, R55).
+- WAIVED requires a nonempty free-text reason. UI reason presets may insert text. Ordinary PAID settlement needs no reason. Waiver/write-off share WAIVED without a WRITE_OFF enum or structured reason category (R52).
+- Use settled_at and settled_by for final PAID or WAIVED closure; waiver_reason is mandatory on WAIVED and null on PAID. Nonterminal combinations and final enforcement SQL remain audited (R53).
+- Keep metadata on the invoice; no separate invoice_waivers event table or redundant is_waived boolean is needed for this one-final-waiver model (R51).
+- Discount workflow: issue standard prices, record actual money, then admin forgives the residual in settlement. The result is WAIVED; lines do not change. Reason examples mentioning an error do not create a retroactive invoice/clinical correction feature (R56).
 
-## Changes in position and sources
+## Derived money and reports
 
-- [October 18 log](history/clinic_checkout_billing_decision_log_2026-10-18.md), §§3–5: detailed permissions and scenarios A–H; §§7–11: reversals, open lifecycle issues and risks.
-- [Parent register](history/clinic_billing_decision_log_2026-10-23.md), §5 and §11: initial partial collection supersedes the older full-payment/Pay-Later-only flow; waiver may follow earlier partial receipts; Due does not imply admin review; issuance lock is stronger than Paid-only charge locking.
-- [Successor](history/clinic_module2_successor_addendum_2026-10-23_1726_IST.md), §§11.3–11.4 and 12: zero-value lines are not receipts; payment policy is outside that settlement update.
-- [October 25 A1](history/clinic_module2_checkout_payments_voiding_addendum_2026-10-25_164648_IST.md), §§2.1–2.3: closes old-Due repeated receipts, ratifies positive receipt rows and atomic payment writes, and derives monetary totals from their sources.
-- [October 25 audit](history/clinic_module2_audit_gap_appendix_2026-10-25_184849_IST.md), G04–G05 and §3: safeguards remain technical work; checkout atomicity does not prove retry safety.
-- [Scope continuation](history/clinic_module2_scope_decision_addendum_2026-10-25.md), §§3, 6–7: closes split-tender/timing/correction/feedback decisions and mandates waiver reason. Its later sections supersede its own earlier OPEN labels. No exact scope-versus-audit timestamp is asserted.
+~~~text
+billed = SUM(immutable issued line amounts)
+received = SUM(positive payment amounts)
+if final status is WAIVED:
+    forgiven = billed - received
+    collectible_outstanding = 0
+else:
+    forgiven = 0
+    collectible_outstanding = billed - received
+~~~
 
-Related: [original charges and invoice totals](checkout-and-invoice-lines.md), [package activation ambiguity](packages.md).
+No independently authoritative header total, waived_amount, or outstanding_amount is selected. Views/functions and concurrency checks must preserve this arithmetic without multiplying line/payment totals through an unsafe join (R54, R66).
+
+Daily collections sum actual dated positive payment rows, including receipts on still-Due and later-WAIVED invoices. Do not equate cash with billed totals, PAID-only invoices, or forgiven amounts. Use the server-recording date limitation above, with exact local cutoff/time-zone implementation audited (R57).
+
+No separately numbered/printed/sent patient payment receipt artifact is required. Confirm saved amount, methods, state, and balance only after backend-confirmed success; failed/unknown outcomes cannot claim success. Preserve the form for manual retry after confirmed rollback; lost responses require the separate idempotency audit (R58–R61).
+
+## Open audit and future boundaries
+
+Exact DDL, RLS, recorder/ownership integration, transition enforcement, RPC/API payloads, confirmation/cancel/error state, concurrency, payment indexes, queries, and migration remain unfinished (A06–A09, A12). Suggested invoice_id/received_at indexes are not approved merely by being suggested. Key/hash/invoice idempotency remains provisional. No refund, reversal, saved-payment correction, debt automation, or cross-invoice allocation is introduced.
+
+## Evidence
+
+Current rules and source references: [reconciliation register](reconciliation-2026-10-27.md#decision-register). Original versions are in [history/](history/); their wording does not override the current rules above.
+
+Related: [checkout](checkout-and-invoice-lines.md), [packages and activation](packages.md), [examination charges](examination-fees.md).
+
+Current authority: [user instructions and consistency corrections](history/clinic_module2_current_decision_authority_2026-10-27.md). Q01–Q05 and Q07 are settled; Q06 remains open. Earlier answers are preserved in [S17](history/clinic_module2_reconciliation_resolutions_2026-10-27.md).
+
+Latest answer: [clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md).
+
+Catalog authority: [admin-only prices and availability](history/clinic_module2_admin_catalog_authority_2026-10-27.md). Q07 is closed.

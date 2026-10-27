@@ -1,43 +1,45 @@
 # Service catalog and branch pricing
 
-Current discussion view reviewed against the supplied October 25 scope/payment records. **O06 remains open**; no new catalog architecture was selected there. Provisional names and preferred alternatives are not approved schema.
+Current catalog decisions as of 27 October 2026. MVP uses one operating clinic and current prices/availability in services. Future branch architecture is deferred. Catalog price/availability authority is admin-only; exact enforcement and physical schema remain audited.
 
-## Current position
+## Current MVP position
 
-- A definition, branch offering, current availability, branch price, performed occurrence and issued charge are different facts.
-- **Settled:** reception sees only available services for its authorized branch; the backend must independently validate eligibility and authorization.
-- **Settled:** configured branch prices are independent. Later global reference-price changes must not silently overwrite them. Disabled offerings must preserve clinical and invoice history.
-- **Owner-reported update:** one branch operates today; the older three-operating-branch assumption is outdated. Future expansion remains intended. This is not verification of live branch records or permission to delete historical data.
-- **V1 allowance:** rare branch provisioning may be manual. Bulk disable-all automation is optional; central safety lockout, promotional scheduling and administrative price history are not established requirements.
-- Ordinary therapy is now flat-only in the proposed model; separately purchased services remain relevant to branch pricing. See [clinical records](clinical-records.md).
+- **Locked scope:** one operating clinic. Do not create a branch-by-service configuration matrix merely to launch MVP. This does not authorize deleting existing clinic identity or ownership FKs (R01).
+- **Locked direction:** keep current editable catalog prices and enabled/disabled availability in services for this single clinic. Defer clinic_service_prices and per-clinic overlay workflows. Disabled services must preserve performed history and issued invoices (R02).
+- **Locked:** both ordinary procedure entry and standalone treatment entry select an existing services identity. No free-text service identities during recording (R10).
+- **Locked / Q07 settled:** only admin may add services, edit existing master catalog prices, or enable/disable a service. Reception cannot change catalog prices or availability. Enforce this on the backend alongside UI restrictions (R10,R80; S20).
+- **Locked:** ordinary complaint therapy is flat-fee, not separately priced per performed routine procedure. One standard ROUTINE rate and one standard REHAB rate apply per complaint-visit, independent of which bundled procedures were performed (R04–R05, R09).
+- **Locked:** the clinician manually chooses the patient's complaint classification once at creation. It remains permanent; different classification requires a new complaint. It is not a service-catalog property selected anew each attendance (R07–R08).
+- **Excluded from MVP:** no persistent negotiated/grandfathered patient-rate engine. Invoice standard amounts; an authorized admin discount uses real receipt(s) and waiver of the remainder, ending WAIVED (R06, R56).
+- **Locked:** invoice lines retain original issued descriptions and prices. Later catalog edits do not change old charges (R31).
 
-## Alternatives and trade-offs
+## Deferred branch architecture
 
-| Alternative | Meaning of a missing branch row | Main trade-off |
-| --- | --- | --- |
-| Sparse overrides over global defaults | Inherit | Few rows, but unconfigured services may become available accidentally; default precedence needs explicit approval. |
-| Every service configured for every branch | Missing configuration is exceptional | Explicit price/status, but provisioning must maintain all pairs, including irrelevant offerings. |
-| Explicit branch enrollment | Not offered | Clear opt-in and no silent fallback, but adding an offering requires configuration rather than merely activation. |
-| Fully branch-owned definitions | No shared service identity | Fewer shared concepts, but duplicated definitions and cross-branch comparison/mapping questions. |
+Service definition, branch availability, configured price, performed occurrence, and issued charge remain different facts. Earlier alternatives included sparse global overrides, a complete service/branch matrix, explicit enrollment, and branch-owned catalogs.
 
-The first three alternatives share conceptual service identities; the fourth does not. Price and availability in one configuration table is provisionally favored, not settled. `clinic_services` is only a provisional name.
+Sparse branch overrides are a **future preference**, not a finalized fallback, availability, migration or table contract. Branch provisioning is not an MVP launch requirement.
 
-## Open questions
+For future branches, explicitly configured branch prices must remain independent: global reference-price edits must not silently overwrite them. Missing-row inheritance and runtime fallback are still future design choices. No branch-creation workflow is required at launch.
 
-- **O06-A/B:** need for shared identities, ownership and the meaning of branch configuration; one price/availability table versus separate tables.
-- **O06-C/D:** branch onboarding, new-service propagation, missing rows, global defaults, temporary suspension and retirement.
-- **O06-E/F:** administration and reception paths, valid zero/missing prices, price resolution and concurrent changes.
-- **O06-G/O12:** standalone/specialty classification, tier assignment, negotiated rates and fee ownership.
-- Runtime global-price fallback is not the accepted current path. Selecting an override model would require explicitly revisiting that choice.
+When a second clinic is introduced, deliberately migrate the original clinic's current prices and availability. Preserve the explicitly requested integration/rewiring dependency on clinic_services according to its eventual role. Do not assume now that both clinic_services and clinic_service_prices are necessary or that either owns a particular responsibility (R03).
 
-## Scenarios and sources
+## Audit and design work still open
 
-[O06 brief](history/O06_service_catalog_branch_configuration_decision_brief_2026-10-23.md), §§5–8, retains the complete alternatives and scenarios: different equipment, branch opening, a new service offered at one branch, temporary disablement, stopping everywhere, price changes and selection/billing paths. Its per-procedure scenario is historical after the successor update.
+- Exact single-clinic catalog/rate columns, where the two flat therapy rates are configured, price validation, and price-selection consistency during concurrent edits.
+- Clinical eligibility/classification of bundled versus independently purchased services; a shared catalog identity alone does not determine its billing context.
+- Exact database authorization and ownership enforcement for the settled admin-only price/availability rule. Business authority is closed; RLS/API enforcement remains audited.
+- Future clinic ownership, missing-row meaning, inheritance/default precedence, new-service rollout, new-branch provisioning, and temporary/global disablement.
 
-## Changes in position
+Do not reopen the answered single-clinic, catalog-only, or permanent complaint-classification business choices as though O06/O12 were wholly undecided.
 
-- [October 21 addendum](history/clinic_billing_decision_addendum_2026-10-21.md) called the unified catalog settled. [October 22 log](history/clinic-billing-decision-log-2026-10-22.md), §3, reopened it.
-- [Parent register](history/clinic_billing_decision_log_2026-10-23.md), §§2.1 and 13: separate definitions preferred, not independently ratified; all-inactive new-branch setup initially settled.
-- O06 brief §4 explicitly **reopens all-inactive provisioning**. Do not carry the parent's settled label forward.
-- [Successor](history/clinic_module2_successor_addendum_2026-10-23_1726_IST.md), §§3, 11.1 and 12, updates operating branches and ordinary flat-only care while leaving O06 open.
-- [October 25 scope continuation](history/clinic_module2_scope_decision_addendum_2026-10-25.md), §4, preserves the independent catalog workstream. Payment/voiding scope does not settle service identity, enrollment, branch provisioning or price/availability tables. [October 25 audit](history/clinic_module2_audit_gap_appendix_2026-10-25_184849_IST.md), G03, records a charge-source classification conflict, not approval to change the catalog model.
+## Evidence
+
+Current rules and source references: [reconciliation register](reconciliation-2026-10-27.md#decision-register). Original versions are in [history/](history/); their wording does not override the current rules above.
+
+Related: [clinical records](clinical-records.md), [checkout](checkout-and-invoice-lines.md), [payments](payments-and-settlement.md).
+
+Current authority: [user instructions and consistency corrections](history/clinic_module2_current_decision_authority_2026-10-27.md). Q01–Q05 and Q07 are settled; Q06 remains open. Earlier answers are preserved in [S17](history/clinic_module2_reconciliation_resolutions_2026-10-27.md).
+
+Latest answer: [clinical preview and fee visibility](history/clinic_module2_clinical_preview_fee_visibility_2026-10-27.md).
+
+Catalog authority: [admin-only prices and availability](history/clinic_module2_admin_catalog_authority_2026-10-27.md). Q07 is closed.
