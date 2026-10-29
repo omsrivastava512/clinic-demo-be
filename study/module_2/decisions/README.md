@@ -1,6 +1,6 @@
 # Module 2 decisions
 
-The six topic pages state the current Module 2 decisions as of 27 October 2026. Each settled subject has one operative rule. Unfinished questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
+The six topic pages state the current Module 2 decisions as of 29 October 2026. Each settled subject has one operative rule. Unfinished questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
 
 ## Topic map
 
@@ -11,9 +11,11 @@ The six topic pages state the current Module 2 decisions as of 27 October 2026. 
 | 3 | [Checkout and invoice lines](checkout-and-invoice-lines.md) | Atomic issuance, combined invoices, original snapshots and sources |
 | 4 | [Payments and settlement](payments-and-settlement.md) | Positive receipts, split tender, final waiver, timestamps, reporting |
 | 5 | [Packages](packages.md) | Required MVP scope, dedicated parked design, covered-only zero-total exception |
-| 6 | [Examination fees](examination-fees.md) | Calendar bands, extra_fees, exam-only care, clinical-model audit |
+| 6 | [Examination fees](examination-fees.md) | Billing-only meaning, calendar bands, independent extra_fees, first/recurrent fee-only checkout |
 
 ## Reading authority
+
+**Delivery phase (S24):** the current operating phase is admin-only. A separate reception role and its authorization/RLS are planned for a later/final MVP phase. Reception references describe future permissions; clinical workflow actors do not imply extra application roles. Future reception may take initial and later payments, including after Pay Later, but only admin may waive. This is policy/phasing intent, not verified deployment state.
 
 - Use the six topic pages and the reconciliation decision register for current rules.
 - All seven review questions Q01–Q07 are settled. Parked technical audits and dedicated package design remain unfinished; no implementation completion is implied.
@@ -22,7 +24,11 @@ The six topic pages state the current Module 2 decisions as of 27 October 2026. 
 
 ## Current checkpoint
 
+The [29 October collection-authority decision](history/clinic_module2_reception_payment_authority_2026-10-29.md) (S24) settles PC08 and expands future reception payment authority beyond initial checkout. Earlier admin-only later-collection restrictions are superseded. The original seven review answers remain settled.
+
 The [short consolidated history log](history/clinic_module2_seven_review_answers_2026-10-27.md) records all seven final answers and their explanations together. The topic pages already contain these decisions; this pass verifies coverage and links the summary.
+
+The [later fee clarification](history/clinic_module2_examination_fee_semantics_2026-10-27.md) (S23) settles examination/lapse fees as independent billing events, not clinical examination records. First and recurrent fee-only checkout follow the same rules, without a required complaint-visit or visit_services row. A five-day return incurs no such fee.
 
 The active non-audit business discussion in the export reaches closure: complaint classification is manually assigned and permanent; charges are flat per complaint-visit; services are catalog-backed; admin additions are required. This does not close exact schema, source/ownership, API/RLS, concurrency, idempotency, migration or validation work. Packages and complaint lifecycle remain in separate discussions.
 
@@ -64,6 +70,8 @@ The five former upcoming logs are now archived below. The updated MVP log and JS
 | S20 | [Admin catalog authority](history/clinic_module2_admin_catalog_authority_2026-10-27.md) | Q07 admin-only prices and availability |
 | S21 | [Status names and standalone identity](history/clinic_module2_status_names_and_standalone_identity_2026-10-27.md) | Approved UNPAID/PARTIALLY_PAID/PAID/WAIVED; Q06 service ID with joined name; all seven review questions settled |
 | S22 | [Consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md) | Compact final answers and owner explanations for Q01–Q07; no new policy |
+| S23 | [Examination/lapse fee meaning](history/clinic_module2_examination_fee_semantics_2026-10-27.md) | Billing-only fees; independent first/recurrent fee-only checkout; attendance recency and five-day no-fee clarification |
+| S24 | [Collection authority and delivery phases](history/clinic_module2_reception_payment_authority_2026-10-29.md) | PC08 resolved; future reception initial/later receipts, admin-only waiver, admin-only current phase and later reception/RLS |
 
 The upcoming staging directory has no remaining consolidated source files. Future incoming records must be compared with the current topics rather than treated as automatic replacements.
 
@@ -75,4 +83,4 @@ Later explicit decisions override earlier statements only on the subjects addres
 
 The research directory remains background material and is not authority for clinic requirements. Documents outside this decisions directory, application code, database schema and Git history are outside this consolidation.
 
-Current checkpoint: [consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md). All seven review questions are settled; implementation and parked audits remain unfinished.
+Current fee clarification: [owner's billing-only and fee-only-checkout clarification](history/clinic_module2_examination_fee_semantics_2026-10-27.md). The [seven-answer checkpoint](history/clinic_module2_seven_review_answers_2026-10-27.md) remains evidence for Q01–Q07; implementation and parked audits remain unfinished.

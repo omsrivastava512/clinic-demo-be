@@ -1,14 +1,18 @@
 # Payments and settlement
 
-Current payment decisions as of 27 October 2026. Settled rules below are authoritative for the proposed MVP; exact schema, authorization and API work remain audited. Evidence and current issue dispositions are in the [reconciliation register](reconciliation-2026-10-27.md).
+Current payment decisions as of 29 October 2026. Settled rules below are authoritative for the proposed MVP; exact schema, authorization and API work remain audited. Evidence and current issue dispositions are in the [reconciliation register](reconciliation-2026-10-27.md).
+
+## Delivery phase and authority
+
+**Locked / S24:** the current operating phase has one application role, admin. A separate reception role and its corresponding authorization/RLS are planned for a later/final MVP phase. Reception permissions below describe that future role; this document does not verify deployed roles.
 
 ## State meanings and authority
 
 - **Locked:** PAID means the full billed balance is discharged through actual receipts, or through the explicitly permitted package-covered-only zero-total settlement. WAIVED means admin forgave the entire remaining collectible amount, including after partial receipts. Both are terminal with zero collectible outstanding and no subsequent receipts, waiver, or state mutation (R36,R74).
 - **Locked:** four invoice states are UNPAID (issued with no receipt), PARTIALLY_PAID (positive receipts with a remaining collectible balance), PAID and WAIVED. This explicitly approved naming set replaces the earlier PENDING/DUE labels (R37,R75,R81; S21).
-- **Locked:** for a positive-total invoice, reception may record the initial actual full or partial receipt: no receipt means Pay Later/UNPAID; partial actual collection leaves PARTIALLY_PAID; full actual collection means PAID. A package-covered-only zero invoice instead offers only Mark as paid after issuance, without any payment row (R38,R74).
-- **Locked:** admin/owner may record repeated additional positive receipts on older PARTIALLY_PAID invoices, with no arbitrary repayment-count cap, leaving the residual due. Reception communicates old-debt collections to admin manually; no automatic cross-invoice allocation or wallet is approved (R39).
-- **Locked:** only admin/owner may waive; hide waiver controls from unauthorized staff and enforce authority on the backend. Reception cannot waive or autonomously change older invoices (R40).
+- **Locked:** The current delivery phase uses admin only. When the planned reception role is introduced, it may finish initial collection after a browser interruption, checking the stored outcome before another write. For positive invoices: Pay Later/no receipt leaves UNPAID, a partial positive receipt leaves PARTIALLY_PAID, and full collection closes PAID. Pay Later ends that initial interaction; later receipts remain allowed under R39. Covered-only zero invoices retain only Mark as paid, with no payment row. (R38,R74; S24).
+- **Locked:** Admin now, and the planned reception role when introduced, may record repeated positive receipts against UNPAID or PARTIALLY_PAID invoices with collectible balance, including after Pay Later and on later days. There is no initial-checkout-only, invoice-age or arbitrary repayment-count limit. Partial collection leaves PARTIALLY_PAID; full balance collection closes PAID. Reception need not hand those receipts to admin. Wallets and automatic cross-invoice allocation remain excluded. (R39; S24).
+- **Locked:** only admin/owner may waive. The planned reception role must have neither waiver controls nor backend waiver permission. Permission to record later receipts does not permit changing issued lines, saved payments or clinical history (R40; S24).
 
 ## Payment records and transaction boundary
 
@@ -52,6 +56,8 @@ No separately numbered/printed/sent patient payment receipt artifact is required
 
 ## Open audit and future boundaries
 
+**PC08 settled / S24:** browser interruption does not require an admin takeover. Future reception may resume initial collection after checking the stored outcome. Pay Later ends that initial interaction, while R39 independently permits later receipts. Exact retry/recovery and reception-role/RLS enforcement remain implementation audits.
+
 Exact DDL, RLS, recorder/ownership integration, transition enforcement, RPC/API payloads, confirmation/cancel/error state, concurrency, payment indexes, queries, and migration remain unfinished (A06–A09, A12). Suggested invoice_id/received_at indexes are not approved merely by being suggested. Key/hash/invoice idempotency remains provisional. No refund, reversal, saved-payment correction, debt automation, or cross-invoice allocation is introduced.
 
 ## Evidence
@@ -60,4 +66,4 @@ Current rules and source references: [reconciliation register](reconciliation-20
 
 Related: [checkout](checkout-and-invoice-lines.md), [packages and activation](packages.md), [examination charges](examination-fees.md).
 
-Current checkpoint: [consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md). All seven review questions are settled; implementation and parked audits remain unfinished.
+Current authority clarification: [collection permissions and delivery phases](history/clinic_module2_reception_payment_authority_2026-10-29.md) (S24). Q01–Q07 and clarity question PC08 are settled; implementation and parked audits remain unfinished.

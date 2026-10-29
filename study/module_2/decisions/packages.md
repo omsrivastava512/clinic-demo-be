@@ -2,9 +2,9 @@
 
 Current package decisions as of 27 October 2026. Packages are required for MVP. Covered-only zero-total invoices are explicitly allowed; remaining package design is parked in its dedicated discussion.
 
-## Settled MVP position
+## MVP scope and current boundaries
 
-- Offering definition, purchase/entitlement acquisition, and redeemed treatment are different facts. A purchase is separately billed. Coverage activation after full payment is the current direction; waiver and partial-payment implications remain open in package design.
+- Offering definition, purchase/entitlement acquisition, and redeemed treatment are different facts. A package purchase is a distinct billed event from treatment redemption. Activation after full payment is recorded direction; detailed activation and redemption conditions, including partial-payment and waiver effects, remain parked. Whether purchase and treatment share an invoice, and whether the purchase can cover treatment in that same checkout, also remain parked in the dedicated package discussion.
 - Each package-covered complaint-visit has its own zero-valued invoice line. An entirely covered checkout still requires an invoice. Coverage must be proved through the eventual entitlement/redemption model, not inferred from zero price.
 - Routine and rehabilitation offerings with 10-day and 30-day options were discussed. ₹4,500 routine / ₹6,000 rehab for 30 days remain tentative; 10-day prices are unknown. Calendar-day versus attended-day meaning is not confirmed. Do not prorate missing prices.
 - Individual standalone sessions are not presold in V1; prepaid packages remain distinct.

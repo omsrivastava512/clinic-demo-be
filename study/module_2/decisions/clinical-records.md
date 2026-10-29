@@ -16,13 +16,13 @@ Current clinical decisions as of 27 October 2026. Settled rules below are author
 - **Locked:** one actual standalone performance produces one immutable timestamped occurrence and its own invoice line. Two actual performances remain distinct. Standalone care delivered with ordinary therapy shares the checkout invoice with separate lines. Individual standalone sessions are not presold; prepaid packages remain a separate subject (R25–R26).
 - **Locked MVP scope:** no physical deletion or retroactive clinical correction/voiding workflow is approved. A financial waiver does not correct a false clinical record (R30, R63).
 
-- **Locked:** clinical records, applicable fees, invoice and lines save in one atomic MVP issuance transaction. No clinical-save-first/bill-later path is permitted. Settlement follows separately after the complete invoice is returned (R22–R24,R77).
+- **Locked:** that checkout's confirmed performed-care records when present, applicable fees, invoice and lines save in one atomic MVP issuance transaction. No clinical-save-first/bill-later path is permitted. Fee-only checkout requires no fabricated clinical record; settlement follows separately after the complete invoice is returned (R22–R24,R77; S23).
 
 - **Locked / Q06 settled:** standalone clinical occurrences store the mandatory service_id and display the service name through a catalog join. No separate clinical treatment-name snapshot is required. Invoice lines retain their own frozen descriptions and amounts; common server recorder/timestamp conventions remain settled (R29,R82; S21).
 
 ## Implementation audits
 
-- **A01–A03:** actual examination representation, cross-schema reference ownership/normalization, and anatomical catalog consistency remain open for audit. Do not fabricate a visit FK or assert live schema from assistant reports.
+- **A01–A03:** independent fee-event representation, cross-schema reference ownership/normalization, and anatomical catalog consistency remain open for audit. Examination/lapse fees are billing events, not clinical examination records, and require no complaint-specific visit_id or visit_services row. Keep actual standalone treatment occurrences separate; do not assert live schema from assistant reports (R19,R69; S23).
 - Minimum standalone registration/documentation and exact field names, source links, authorization, and ownership checks remain implementation/audit work. A user-mentioned clinician is a workflow actor, not approval of new database roles.
 - No generic physical-session table is approved. Distinct entry forms do not force distinct invoices or transactions.
 - Complaint closure/inactivity (**A05**) and complaint deselection/procedure-cleanup validation (**A13**) remain explicitly parked.
@@ -37,7 +37,7 @@ The earlier 16-table review records vitals deferred with drop-versus-dormant ope
 
 ## Scenarios
 
-Routine ultrasound during knee therapy is a clinical procedure beneath one flat-billed knee visit. Independently purchased traction is a separate performed event with anatomy. Treating knee and shoulder produces two complaint-visits; a separate cupping occurrence can share their invoice.
+Routine ultrasound during knee therapy is a clinical procedure beneath one flat-billed knee visit. Independently purchased traction is a separate performed event with anatomy. Treating knee and shoulder produces two complaint-visits; a separate cupping occurrence shares their invoice.
 
 ## Evidence
 
@@ -45,4 +45,4 @@ Current rules and source references: [reconciliation register](reconciliation-20
 
 Related: [catalog and pricing](service-catalog-and-branch-pricing.md), [checkout](checkout-and-invoice-lines.md), [examination fees](examination-fees.md).
 
-Current checkpoint: [consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md). All seven review questions are settled; implementation and parked audits remain unfinished.
+Current fee clarification: [owner's billing-only and fee-only-checkout clarification](history/clinic_module2_examination_fee_semantics_2026-10-27.md). The [seven-answer checkpoint](history/clinic_module2_seven_review_answers_2026-10-27.md) remains evidence for Q01–Q07; implementation and parked audits remain unfinished.
