@@ -2,6 +2,10 @@
 
 The six topic pages state the current Module 2 decisions as of 29 October 2026. Each settled subject has one operative rule. Unfinished questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
 
+**Package source scope:** the two requested logs are reconciled through 29 October (S25–S26). A known later package discussion was excluded at the user's request and has not been reconciled; check it before using the package snapshot as the latest policy. Other topic decisions remain governed by their current sources.
+
+The earlier policy-clarity audit report and its coverage CSV record the S24 snapshot; their file counts and hashes predate this package incorporation.
+
 ## Topic map
 
 | Order | Topic | Contents |
@@ -10,7 +14,7 @@ The six topic pages state the current Module 2 decisions as of 29 October 2026. 
 | 2 | [Service catalog and pricing](service-catalog-and-branch-pricing.md) | Single-clinic current settings, two flat rates, future branch migration |
 | 3 | [Checkout and invoice lines](checkout-and-invoice-lines.md) | Atomic issuance, combined invoices, original snapshots and sources |
 | 4 | [Payments and settlement](payments-and-settlement.md) | Positive receipts, split tender, final waiver, timestamps, reporting |
-| 5 | [Packages](packages.md) | Required MVP scope, dedicated parked design, covered-only zero-total exception |
+| 5 | [Packages](packages.md) | Required MVP scope, cutoff-scoped package directions, open decisions, covered-only zero-total exception |
 | 6 | [Examination fees](examination-fees.md) | Billing-only meaning, calendar bands, independent extra_fees, first/recurrent fee-only checkout |
 
 ## Reading authority
@@ -72,6 +76,8 @@ The five former upcoming logs are now archived below. The updated MVP log and JS
 | S22 | [Consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md) | Compact final answers and owner explanations for Q01–Q07; no new policy |
 | S23 | [Examination/lapse fee meaning](history/clinic_module2_examination_fee_semantics_2026-10-27.md) | Billing-only fees; independent first/recurrent fee-only checkout; attendance recency and five-day no-fee clarification |
 | S24 | [Collection authority and delivery phases](history/clinic_module2_reception_payment_authority_2026-10-29.md) | PC08 resolved; future reception initial/later receipts, admin-only waiver, admin-only current phase and later reception/RLS |
+| S25 | [Package handover, 28 October](history/clinic_packages_handover_2026-10-28.md) | User decisions, reported owner requirements, proposals and open questions through 28 October |
+| S26 | [Package addendum, 28–29 October](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) | Subsequent directions and changes, owner-confirmation gaps, proposals and unresolved conflicts through 29 October |
 
 The upcoming staging directory has no remaining consolidated source files. Future incoming records must be compared with the current topics rather than treated as automatic replacements.
 

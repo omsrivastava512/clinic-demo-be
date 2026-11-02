@@ -54,6 +54,10 @@ Daily collections sum actual dated positive payment rows, including receipts on 
 
 No separately numbered/printed/sent patient payment receipt artifact is required. Confirm saved amount, methods, state, and balance only after backend-confirmed success; failed/unknown outcomes cannot claim success. Preserve the form for manual retry after confirmed rollback; lost responses require the separate idempotency audit (R58–R61).
 
+## Package payment interaction — source cutoff
+
+Through 29 October, S25–S26 record the user's direction that an unpaid or partially paid package invoice should not automatically block package coverage solely because of its balance. The activation event and operational payment policy remain open. A later package discussion was explicitly excluded from this incorporation, so confirm the latest package policy before implementation. See [packages](packages.md).
+
 ## Open audit and future boundaries
 
 **PC08 settled / S24:** browser interruption does not require an admin takeover. Future reception may resume initial collection after checking the stored outcome. Pay Later ends that initial interaction, while R39 independently permits later receipts. Exact retry/recovery and reception-role/RLS enforcement remain implementation audits.

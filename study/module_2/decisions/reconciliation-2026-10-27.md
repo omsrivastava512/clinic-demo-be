@@ -1,6 +1,6 @@
 # Module 2 decision reconciliation — updated 29 October 2026
 
-The six topic pages and the decision register below state the current Module 2 decisions. Each settled subject has one operative rule. Q01–Q07 and clarity question PC08 are settled. Parked implementation audits remain explicitly open. Original source wording, chronology and comparison tables are evidence only and cannot override current rules. This reconciliation includes later user instructions through S24; it does not establish deployed schema.
+The six topic pages and the decision register below state the Module 2 decisions. Q01–Q07 and PC08 remain settled. S25–S26 introduce package directions and open questions through 29 October; a known later package discussion was explicitly excluded, so the package material is a cutoff-scoped snapshot, not a verified latest policy. Other parked implementation audits remain open. Original historical wording is evidence only. This record does not establish deployed schema.
 
 ## Source inventory and precedence
 
@@ -30,8 +30,10 @@ The six topic pages and the decision register below state the current Module 2 d
 | S22 | [Consolidated seven-answer history log](history/clinic_module2_seven_review_answers_2026-10-27.md) | Compact final answers and owner explanations for Q01–Q07; no new policy |
 | S23 | [Examination/lapse fee meaning](history/clinic_module2_examination_fee_semantics_2026-10-27.md) | Billing-only fees; independent first/recurrent fee-only checkout; attendance recency and five-day no-fee clarification |
 | S24 | [Collection authority and delivery phases](history/clinic_module2_reception_payment_authority_2026-10-29.md) | PC08 resolved; future reception initial/later receipts, admin-only waiver, admin-only current phase and later reception/RLS |
+| S25 | [Package handover, 28 October](history/clinic_packages_handover_2026-10-28.md) | User decisions, reported owner requirements, proposals and open questions through 28 October |
+| S26 | [Package addendum, 28–29 October](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) | Subsequent directions and changes, owner-confirmation gaps, proposals and unresolved conflicts through 29 October |
 
-S01–S09 preserve the existing workbook source IDs. S10–S24 extend them. S17–S21 and S23–S24 record the subsequent user clarifications in this chat and are not part of S16. Earlier October 21/22 and O06 archived records remain linked by the owning topics and unchanged in history. The existing October 25 chronology guide remains a historical reconciliation snapshot.
+S01–S09 preserve the existing workbook source IDs. S10–S26 extend them. S17–S21 and S23–S24 record the subsequent user clarifications in this chat and are not part of S16. Earlier October 21/22 and O06 archived records remain linked by the owning topics and unchanged in history. The existing October 25 chronology guide remains a historical reconciliation snapshot.
 
 Use subject-specific explicit approvals, not a blanket newest-file-wins rule. S14 is internally incremental: its appended §8 follows its initial checkpoint. S15 preserves earlier reconstruction alongside later decisions; S16 directly supports only the supplied export. A later assistant proposal is not approval. Original decision IDs are source-qualified because similarly named IDs in different logs are not the same record.
 
@@ -119,6 +121,13 @@ S24 records the 29 October owner decision. Reception may resume initial collecti
 | --- | --- | --- | --- |
 | S24 | [clinic_module2_reception_payment_authority_2026-10-29.md](history/clinic_module2_reception_payment_authority_2026-10-29.md) | 2265 | 1A0F5B458394277F6E0C6DF144CEAF3758785FD391EBDAA4963A356DE282C6F6 |
 
+S25–S26 are the two user-selected package logs. S26 records directions and conflicts after the S25 cutoff; proposals and owner-reported positions retain their source status. The user excluded a known later package discussion, so these records do not establish the latest package terms.
+
+| Source | New record | Bytes | SHA-256 |
+| --- | --- | --- | --- |
+| S25 | [clinic_packages_handover_2026-10-28.md](history/clinic_packages_handover_2026-10-28.md) | 40548 | 30898DA4F7B7563682FB9B6E6EFA9B91F0361754870C9FDE2553AE1DDE62265B |
+| S26 | [clinic_packages_addendum_2026-10-28_to_2026-10-29.md](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) | 37118 | 05BC1D7569CB23D54D88AE8B91BAE902D702A53813FE02EE3208F374685285F8 |
+
 ## Decision register
 
 The current phase has admin as its sole application role. Reception permissions describe the planned later/final MVP role and its future authorization/RLS (S24). Clinical workflow actors do not imply extra application roles.
@@ -188,7 +197,7 @@ Rows summarize fact-level reconciliation; they are not a count of newly approved
 | R59 | payments | LOCKED BUSINESS / AUDIT REQUIRED | Show payment success only after confirmed backend save. Failed or uncertain responses cannot claim success. Exact API payloads, UI state, cancellation, and error/recovery contracts remain audited. | S12 §3.4; S15 §6 |
 | R60 | checkout | LOCKED REQUIREMENT | Disable submit while a request is pending. Preserve the form and allow manual retry after confirmed rollback; no automatic client/server retry loop. Backend duplicate prevention is still mandatory; button disabling and atomicity do not prove idempotency. | S12 Q4; S15 D-18–D-19; S16 M009 |
 | R61 | checkout | PROVISIONAL / AUDIT REQUIRED | The proposed idempotency-key/request-hash/invoice record is not final. Audit request scope, canonical hashing, concurrent races, retention, lost-response recovery, and payment replay. Unknown outcome is not confirmed rollback. | S15 D-24; S16 M108–M109 |
-| R62 | packages | PARKED OTHER CHAT / MVP REQUIRED | Packages remain required for MVP; detailed offering,purchase,activation,coverage,validity and redemption remain in another chat. Covered-only zero-total invoices are now explicitly allowed; detailed eligibility and activation are still unfinished. Package purchase is a distinct billed event from redemption; purchase/treatment invoice grouping and same-checkout coverage remain parked. | S17 U01; S09 §§6–7; S11 Part I §10; S15 D-07 |
+| R62 | packages | PARTIAL DIRECTION / USER REVIEW | Packages remain required. S25–S26 describe complaint-specific ten-visit allowance and soft review. The user-selected 30-day review needs owner confirmation; a 26-visit cap is proposed. User direction rejects balance-based automatic blocking; exact activation and owner payment policy remain open. Closure authority, same-day coverage and overlap remain unresolved. Covered-only zero invoices remain allowed. Snapshot through 29 October; later discussion excluded. | S17 U01; S09 §§6–7; S11 Part I §10; S15 D-07; S25; S26 |
 | R63 | checkout | DEFERRED FUTURE | No post-issuance append/remove/reprice,replacement/void-and-reissue,saved-payment repair or retroactive clinical correction in MVP. No unused voiding fields are preapproved. | S09 §§1–2,7; S12 Q6 |
 | R64 | cross | CONDITIONAL FUTURE | If correction/voiding is later built, preserve conditional admin-only authority, child and parent consistency, Paid-link blocks, financial floors, and audit metadata. Waiver-plus-void double reduction and false-record/Paid-lock traps remain unresolved future risks. | S07 §§1–6; S08 G06–G15; S09 §§1–2 |
 | R65 | cross | AUDIT REQUIRED | Retain historical dispositions for vitals (drop/dormant unresolved), alerts (removal intent subject to dependency/data checks), and timeline_events (purpose to investigate). No cleanup, deletion, or live-schema inventory was performed here. | S06 §5; S08 §4; existing clinical topic |
@@ -211,6 +220,8 @@ Rows summarize fact-level reconciliation; they are not a count of newly approved
 | R82 | clinical | USER RESOLUTION Q06 | Standalone clinical occurrence stores service_id and displays the catalog name through a join,without an extra clinical name snapshot. Invoice-line snapshots remain required. Aliases for alternate wording are catalog metadata direction; exact alias representation is not selected. | S21; S22 Q06 |
 
 ## Source coverage
+
+S25's P01–P30 requirement and open-question register and S26's delta/A31–A32 are carried into the [cutoff-scoped package page](packages.md) and A11/N26/N51/R62. S25 is the baseline; S26 records later directions, proposals and conflicts through 29 October. The explicitly excluded later package discussion is not represented as reconciled.
 
 ### Five incoming addenda
 
@@ -424,7 +435,7 @@ These are recorded unfinished questions, not requests to restart the audit or pa
 | A08 | Idempotency and uncertain outcome | What request/key scope, canonical payload hash, retention, concurrency, replay and recovery are needed for checkout and payment after a lost response? Proposed key/hash/invoice storage is not final. | O14; N19; S15 D-24 | R60,R61 |
 | A09 | Payment API, reporting and indexes | What payload/confirmation/cancel/error states, financial views/functions and payment indexes implement the settled behavior and recording-day reports without duplicate sums? | O14–O16; N16,N20,N31; S14 §8 | R41,R46,R54,R57,R59,R66,R72 |
 | A10 | Migration and validation | How does final design differ from repository/deployed schema and legacy ledger states, what backfill/rollback is required, and which acceptance/concurrency checks must be executed? | O17/O18; N05,N22; S15 §6 | R66,R71,R72 |
-| A11 | Dedicated package workstream | Resolve offering/prices, day/session meaning, purchase/activation/waiver, coverage/redemption, expiry/exhaustion, imports, concurrent use, and covered-only invoice implementation under the resolved zero-total exception. Refund/transfer/extension boundaries were not individually specified. | O08; N26,N32; S09 §6; Q01 | R33,R62 |
+| A11 | Dedicated package workstream | Resolve owner acceptance of fixed 30-day review vs reported calendar month, proposed 26-visit cap, same-day coverage, soft-review authority/date boundaries, closure-role conflict and refund handling. Decide activation/payment, overlap, prices, imports, same-checkout coverage and concurrency. The two-log package snapshot ends 29 October; later discussion excluded. | O08; N26,N32; S09 §6; Q01; S25; S26 | R33,R62 |
 | A12 | Historical schema dispositions | Audit dependency/data implications before dropping or retaining vitals, removing alerts, or changing timeline_events. Existing 16-table notes are historical, not a fresh deployment inventory. | N09–N11; S06 §5; S08 §4 | R65 |
 | A13 | Parked frontend cleanup | What should happen to selected procedures when a complaint is deselected? The earlier cleanup/validation question remains explicitly parked. | N33; S09 §7 | Historical scope carry-forward |
 
@@ -461,7 +472,7 @@ Current dispositions match the tracker. All seven review questions are closed. H
 | N23 | OPEN FUTURE | Old visit_services creation metadata gap was identified conditionally; no new columns preapproved. S06 §5; S08 §4. |
 | N24 | DEFERRED FUTURE | Paid financial corrections/refunds/credit and retroactive repair remain outside MVP. S09 §§1–2,7. |
 | N25 | DEFERRED FUTURE | Automated old-debt alerts and receipt allocation across invoices remain excluded. S06 N25. |
-| N26 | PARKED | Packages remain required MVP in another chat. Covered-only zero invoices are explicitly allowed; coverage/activation/redemption details stay A11. S17 U01. |
+| N26 | USER REVIEW | S25–S26 partially develop required MVP packages. Owner/user decisions remain open on the 30-day commercial term, proposed 26 cap, same-day coverage, post-review authority and conflicting closure roles; exact activation/overlap remain open. Source snapshot through 29 October only; later package discussion excluded. A11; R62. |
 | N27 | OPEN FUTURE | Clinical correction source display and original-charge history if future voiding built. No current invoice amendment feature. S08 G10,G12; S09 §2. |
 | N28 | AUDIT REQUIRED | Typed logical source default and once-per-occurrence uniqueness retained. Independent extra_fees needs no complaint-visit or performed-examination source; exact fee/source constraints remain audited. S23; R19,R34–R35; A01,A06. |
 | N29 | OPEN FUTURE | Avoid waiver plus void-filter double financial reduction; define original vs eligible totals before corrections. S08 G06/G10. |
@@ -486,7 +497,7 @@ Current dispositions match the tracker. All seven review questions are closed. H
 | N48 | AUDIT REQUIRED | A08 — Idempotency and uncertain outcome: What request/key scope, canonical payload hash, retention, concurrency, replay and recovery are needed for checkout and payment after a lost response? Proposed key/hash/invoice storage is not final. Source: O14; N19; S15 D-24. |
 | N49 | AUDIT REQUIRED | A09 — Payment API, reporting and indexes: What payload/confirmation/cancel/error states, financial views/functions and payment indexes implement the settled behavior and recording-day reports without duplicate sums? Source: O14–O16; N16,N20,N31; S14 §8. |
 | N50 | AUDIT REQUIRED | A10 — Migration and validation: How does final design differ from repository/deployed schema and legacy ledger states, what backfill/rollback is required, and which acceptance/concurrency checks must be executed? Source: O17/O18; N05,N22; S15 §6. |
-| N51 | PARKED | A11: offering/prices,day/session meaning,purchase/activation/waiver,coverage/redemption,expiry,imports and concurrent use remain in package chat. Covered-only zero-total exception is resolved. Refund/transfer/extension boundaries not specified. S17 U01. |
+| N51 | PARKED | A11: reconcile the two-log package directions with outstanding offering/prices, day-boundary, purchase/activation/payment, coverage/redemption, closure/refund, imports, overlap and concurrency. Covered-only zero exception remains resolved. S25–S26 cover only through 29 October; later discussion excluded. |
 | N52 | AUDIT REQUIRED | A12 — Historical schema dispositions: Audit dependency/data implications before dropping or retaining vitals, removing alerts, or changing timeline_events. Existing 16-table notes are historical, not a fresh deployment inventory. Source: N09–N11; S06 §5; S08 §4. |
 | N53 | PARKED | A13 — Parked frontend cleanup: What should happen to selected procedures when a complaint is deselected? The earlier cleanup/validation question remains explicitly parked. Source: N33; S09 §7. |
 

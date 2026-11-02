@@ -5,6 +5,7 @@ Current clinical decisions as of 27 October 2026. Settled rules below are author
 ## Current position
 
 - **Locked:** one treated complaint on an occasion produces one complaint-specific visit. Two treated complaints during one physical attendance produce two visits and two therapy lines on the same checkout invoice (R04).
+- **Owner-reported / S25:** two genuine treatments for the same complaint can occur on one date; a warning is preferred over a blanket date-based ban. Coverage and duplicate-handling details remain open. This package-source reading is limited to the two logs through 29 October.
 - **Locked:** ordinary therapy has a flat charge per complaint-visit. visit_services records the actual bundled procedures; those procedures do not have separate ordinary financial amounts, charge-status fields, or extra zero-value procedure lines. The ordinary billing_mode fork is dropped (R04–R05).
 - **Locked:** the clinician manually assigns ROUTINE or REHAB when creating the patient's complaint. Store that classification on the complaint and use it for subsequent visits; do not infer it automatically from complaint_catalog or reselect it per attendance (R07).
 - **Locked:** classification is permanent. A different classification requires a new complaint while preserving the original history. Closure of the original is **parked for audit**; no mandatory or automatic closure is approved (R08, R70).
