@@ -1,8 +1,8 @@
 # Module 2 decisions
 
-The six topic pages state the current Module 2 decisions as of 29 October 2026. Each settled subject has one operative rule. Unfinished questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
+The six topic pages state the current Module 2 decisions as of 2 November 2026. Each settled subject has one operative rule. Unfinished questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
 
-**Package source scope:** the two requested logs are reconciled through 29 October (S25–S26). A known later package discussion was excluded at the user's request and has not been reconciled; check it before using the package snapshot as the latest policy. Other topic decisions remain governed by their current sources.
+**Package source scope:** all three package records are reconciled through 2 November 2026 (S25–S27, PKG-PATCH-2026-11-02-01). The long offering's 26-visit ceiling and 1-per-day limit are confirmed; Sunday review-date arithmetic and role-based closure are settled; payment gating remains open for owner resolution. Other topic decisions remain governed by their current sources.
 
 The earlier policy-clarity audit report and its coverage CSV record the S24 snapshot; their file counts and hashes predate this package incorporation.
 
@@ -14,7 +14,7 @@ The earlier policy-clarity audit report and its coverage CSV record the S24 snap
 | 2 | [Service catalog and pricing](service-catalog-and-branch-pricing.md) | Single-clinic current settings, two flat rates, future branch migration |
 | 3 | [Checkout and invoice lines](checkout-and-invoice-lines.md) | Atomic issuance, combined invoices, original snapshots and sources |
 | 4 | [Payments and settlement](payments-and-settlement.md) | Positive receipts, split tender, final waiver, timestamps, reporting |
-| 5 | [Packages](packages.md) | Required MVP scope, cutoff-scoped package directions, open decisions, covered-only zero-total exception |
+| 5 | [Packages](packages.md) | Required MVP scope, 10-visit & 26-visit offerings, 1/day limit, soft-review UX, role closure, covered-only zero-total exception |
 | 6 | [Examination fees](examination-fees.md) | Billing-only meaning, calendar bands, independent extra_fees, first/recurrent fee-only checkout |
 
 ## Reading authority
@@ -27,6 +27,8 @@ The earlier policy-clarity audit report and its coverage CSV record the S24 snap
 - Source inventories, coverage maps and override comparisons explain provenance; old wording there cannot override a current decision. Research is background material, not clinic policy.
 
 ## Current checkpoint
+
+The [2 November package patch](history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md) (S27) incorporates the third cumulative package record. The long offering's 26 covered-visit hard ceiling and 1-per-day coverage limit are confirmed [OWNER—REPORTED—CONFIRMED]. The 10-visit Sunday purchase day-1 counting rule, two-stage review UX, registration review-clock start, role-based closure (admin anytime, receptionist strictly on overdue status), same-complaint active purchase blocking, and independent routine/rehab pricing are settled [USER—DECIDED]. Payment-gating policy remains explicitly open for owner consultation.
 
 The [29 October collection-authority decision](history/clinic_module2_reception_payment_authority_2026-10-29.md) (S24) settles PC08 and expands future reception payment authority beyond initial checkout. Earlier admin-only later-collection restrictions are superseded. The original seven review answers remain settled.
 
@@ -78,6 +80,7 @@ The five former upcoming logs are now archived below. The updated MVP log and JS
 | S24 | [Collection authority and delivery phases](history/clinic_module2_reception_payment_authority_2026-10-29.md) | PC08 resolved; future reception initial/later receipts, admin-only waiver, admin-only current phase and later reception/RLS |
 | S25 | [Package handover, 28 October](history/clinic_packages_handover_2026-10-28.md) | User decisions, reported owner requirements, proposals and open questions through 28 October |
 | S26 | [Package addendum, 28–29 October](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) | Subsequent directions and changes, owner-confirmation gaps, proposals and unresolved conflicts through 29 October |
+| S27 | [clinic_packages_discussion_patch_2026-11-02_181036_IST.md](history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md) | Third cumulative package record: 26 hard cap, 1/day, Sunday review arithmetic, closure authority, registration clock, payment gating reopened |
 
 The upcoming staging directory has no remaining consolidated source files. Future incoming records must be compared with the current topics rather than treated as automatic replacements.
 

@@ -1,6 +1,6 @@
-# Module 2 decision reconciliation — updated 29 October 2026
+# Module 2 decision reconciliation — updated 2 November 2026
 
-The six topic pages and the decision register below state the Module 2 decisions. Q01–Q07 and PC08 remain settled. S25–S26 introduce package directions and open questions through 29 October; a known later package discussion was explicitly excluded, so the package material is a cutoff-scoped snapshot, not a verified latest policy. Other parked implementation audits remain open. Original historical wording is evidence only. This record does not establish deployed schema.
+The six topic pages and the decision register below state the Module 2 decisions. Q01–Q07 and PC08 remain settled. S25–S27 incorporate the complete package directions through 2 November 2026 (PKG-PATCH-2026-11-02-01): the 26-visit ceiling and 1-per-day long-offering limit are owner-confirmed; Sunday review arithmetic, two-stage review UX, registration review-clock start, role-based closure (admin anytime, receptionist strictly on overdue status) and independent routine/rehab pricing are settled. Payment gating remains explicitly open for owner consultation. Other parked implementation audits remain open. Original historical wording is evidence only. This record does not establish deployed schema.
 
 ## Source inventory and precedence
 
@@ -32,8 +32,9 @@ The six topic pages and the decision register below state the Module 2 decisions
 | S24 | [Collection authority and delivery phases](history/clinic_module2_reception_payment_authority_2026-10-29.md) | PC08 resolved; future reception initial/later receipts, admin-only waiver, admin-only current phase and later reception/RLS |
 | S25 | [Package handover, 28 October](history/clinic_packages_handover_2026-10-28.md) | User decisions, reported owner requirements, proposals and open questions through 28 October |
 | S26 | [Package addendum, 28–29 October](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) | Subsequent directions and changes, owner-confirmation gaps, proposals and unresolved conflicts through 29 October |
+| S27 | [clinic_packages_discussion_patch_2026-11-02_181036_IST.md](history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md) | Third cumulative package record: 26 hard cap, 1/day, Sunday review arithmetic, closure authority, registration clock, payment gating reopened |
 
-S01–S09 preserve the existing workbook source IDs. S10–S26 extend them. S17–S21 and S23–S24 record the subsequent user clarifications in this chat and are not part of S16. Earlier October 21/22 and O06 archived records remain linked by the owning topics and unchanged in history. The existing October 25 chronology guide remains a historical reconciliation snapshot.
+S01–S09 preserve the existing workbook source IDs. S10–S27 extend them. S17–S21 and S23–S24 record the subsequent user clarifications in this chat and are not part of S16. Earlier October 21/22 and O06 archived records remain linked by the owning topics and unchanged in history. The existing October 25 chronology guide remains a historical reconciliation snapshot.
 
 Use subject-specific explicit approvals, not a blanket newest-file-wins rule. S14 is internally incremental: its appended §8 follows its initial checkpoint. S15 preserves earlier reconstruction alongside later decisions; S16 directly supports only the supplied export. A later assistant proposal is not approval. Original decision IDs are source-qualified because similarly named IDs in different logs are not the same record.
 
@@ -50,6 +51,7 @@ The export capture is 2026-10-26T19:07:01.478Z (27 October at 00:37:01.478 IST),
 | S14 | upcoming/clinic_module2_running_decision_log_2026-10-26_1130_IST.md | [history/clinic_module2_running_decision_log_2026-10-26_1130_IST.md](history/clinic_module2_running_decision_log_2026-10-26_1130_IST.md) | Move after verification | 31679 | 5D6E97C661DB61721DA8036E2FC112FBCCC6DF1D065359FAC870FCADC6C09837 |
 | S15 | dump/module2_mvp_chat_decision_log_2026-10-26.md | [history/module2_mvp_chat_decision_log_2026-10-26.md](history/module2_mvp_chat_decision_log_2026-10-26.md) | Copy; retain dump original | 46269 | 06C7BCDC0C97355A560B1ED568F92902DF1B5285532C3687581DF0F3B8D1B4A2 |
 | S16 | dump/chatgpt-full-transcript-1793041621482.json | [history/chatgpt-full-transcript-1793041621482.json](history/chatgpt-full-transcript-1793041621482.json) | Copy; retain dump original | 71930 | 29B8C59A649B54A1C4E6F99F66B7FE1F231BF69B949BA75920C9FC286515C332 |
+| S27 | Downloads/clinic_packages_discussion_patch_2026-11-02_181036_IST.md | [history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md](history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md) | Copy; retain original | 61484 | 5CC6594D2670145F6CAE4B76A1C8FF7A769CF310A79974CE2BD4E389CAF825C6 |
 
 All seven basenames were absent from the existing archive and all seven contents were distinct at preflight. Five upcoming files are moved byte-for-byte; dump log/JSON are copied and their originals retained. Original metadata paths inside preserved sources are historical. Use this manifest for current locations. Later changes to a dump original do not mutate its archived snapshot.
 
@@ -121,12 +123,13 @@ S24 records the 29 October owner decision. Reception may resume initial collecti
 | --- | --- | --- | --- |
 | S24 | [clinic_module2_reception_payment_authority_2026-10-29.md](history/clinic_module2_reception_payment_authority_2026-10-29.md) | 2265 | 1A0F5B458394277F6E0C6DF144CEAF3758785FD391EBDAA4963A356DE282C6F6 |
 
-S25–S26 are the two user-selected package logs. S26 records directions and conflicts after the S25 cutoff; proposals and owner-reported positions retain their source status. The user excluded a known later package discussion, so these records do not establish the latest package terms.
+S25–S27 are the three user-selected package records. S27 incorporates the post-addendum discussion through 2 November 2026: 26 hard cap, 1/day limit, Sunday review arithmetic, closure authority, registration clock, and payment gating reopened for owner consultation.
 
 | Source | New record | Bytes | SHA-256 |
 | --- | --- | --- | --- |
 | S25 | [clinic_packages_handover_2026-10-28.md](history/clinic_packages_handover_2026-10-28.md) | 40548 | 30898DA4F7B7563682FB9B6E6EFA9B91F0361754870C9FDE2553AE1DDE62265B |
 | S26 | [clinic_packages_addendum_2026-10-28_to_2026-10-29.md](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) | 37118 | 05BC1D7569CB23D54D88AE8B91BAE902D702A53813FE02EE3208F374685285F8 |
+| S27 | [clinic_packages_discussion_patch_2026-11-02_181036_IST.md](history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md) | 61484 | 5CC6594D2670145F6CAE4B76A1C8FF7A769CF310A79974CE2BD4E389CAF825C6 |
 
 ## Decision register
 
@@ -435,7 +438,7 @@ These are recorded unfinished questions, not requests to restart the audit or pa
 | A08 | Idempotency and uncertain outcome | What request/key scope, canonical payload hash, retention, concurrency, replay and recovery are needed for checkout and payment after a lost response? Proposed key/hash/invoice storage is not final. | O14; N19; S15 D-24 | R60,R61 |
 | A09 | Payment API, reporting and indexes | What payload/confirmation/cancel/error states, financial views/functions and payment indexes implement the settled behavior and recording-day reports without duplicate sums? | O14–O16; N16,N20,N31; S14 §8 | R41,R46,R54,R57,R59,R66,R72 |
 | A10 | Migration and validation | How does final design differ from repository/deployed schema and legacy ledger states, what backfill/rollback is required, and which acceptance/concurrency checks must be executed? | O17/O18; N05,N22; S15 §6 | R66,R71,R72 |
-| A11 | Dedicated package workstream | Resolve owner acceptance of fixed 30-day review vs reported calendar month, proposed 26-visit cap, same-day coverage, soft-review authority/date boundaries, closure-role conflict and refund handling. Decide activation/payment, overlap, prices, imports, same-checkout coverage and concurrency. The two-log package snapshot ends 29 October; later discussion excluded. | O08; N26,N32; S09 §6; Q01; S25; S26 | R33,R62 |
+| A11 | Dedicated package workstream | Reconciled through S27 (2 Nov 2026): 26 hard cap confirmed [OWNER—REPORTED—CONFIRMED]; 1/day limit confirmed [OWNER—REPORTED—CONFIRMED]; Sunday review arithmetic settled; two-stage review UX settled; closure authority settled (admin anytime, receptionist strictly on overdue status); registration review-clock start settled; routine/rehab pricing independent. Open: owner payment gating (O-01), long offering 30-day commercial wording (O-02), and queued state schema / redemption integrity audits (O-15–O-28). | O08; N26,N32; S09 §6; Q01; S25; S26; S27 | R33,R62,R74 |
 | A12 | Historical schema dispositions | Audit dependency/data implications before dropping or retaining vitals, removing alerts, or changing timeline_events. Existing 16-table notes are historical, not a fresh deployment inventory. | N09–N11; S06 §5; S08 §4 | R65 |
 | A13 | Parked frontend cleanup | What should happen to selected procedures when a complaint is deselected? The earlier cleanup/validation question remains explicitly parked. | N33; S09 §7 | Historical scope carry-forward |
 
