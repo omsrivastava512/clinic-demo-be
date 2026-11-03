@@ -1,8 +1,8 @@
 # Module 2 decisions
 
-The six topic pages state the current Module 2 decisions as of 2 November 2026. Each settled subject has one operative rule. Unfinished questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
+The six topic pages state the current Module 2 decisions as of 3 November 2026. Each settled subject has one operative rule. Unfinished questions and audits are explicitly marked; they do not approve competing alternatives. Historical versions remain evidence in history/. These documents do not establish deployed behavior.
 
-**Package source scope:** all four package records are reconciled through the 2 November 2026 voice session (S25–S28). The long offering's 26-visit ceiling and 1-per-day limit are confirmed; the 7 closure reason presets, backend date validation on "Patient Stopped Attending", post-closure factual summary, explicit rejection of queuing, and N+1 replacement start are settled; payment gating remains open for owner resolution. Other topic decisions remain governed by their current sources.
+**Package source scope:** all five package records are reconciled through the 3 November 2026 pre-questionnaire session (S25–S29). Payment gating is formally settled as payment-independent (₹0, partial, or full payment activates package and allows coverage; D04); long offering review period is confirmed as fixed 30 consecutive calendar days (D05); post-review justification notes are mandatory for receptionists in MVP (D06); active packages block complaint closure (D07); the 26-visit ceiling, 1-per-day limit, 7 closure reason presets, backend date validation on "Patient Stopped Attending", post-closure factual summary, explicit rejection of queuing, and N+1 replacement start remain settled. Other topic decisions remain governed by their current sources.
 
 The earlier policy-clarity audit report and its coverage CSV record the S24 snapshot; their file counts and hashes predate this package incorporation.
 
@@ -27,6 +27,8 @@ The earlier policy-clarity audit report and its coverage CSV record the S24 snap
 - Source inventories, coverage maps and override comparisons explain provenance; old wording there cannot override a current decision. Research is background material, not clinic policy.
 
 ## Current checkpoint
+
+The [3 November pre-questionnaire package log](history/clinic_package_decision_log_2026-11-03_pre_questionnaire.md) (S29) settles payment-independent package activation (₹0, partial, or full payment activates package; coverage continues until deliberate closure; D04), reaffirms the fixed 30-consecutive-day review duration for the long offering (D05), establishes mandatory post-review justification notes for receptionists in MVP (D06), establishes that an active package strictly blocks closure of its associated complaint (D07), reaffirms forfeiture on early closure (D01), same-day replacement treatment restrictions (D02), and clarifies that coverage is evaluated at visit recording time with no historical treatment occurrence timestamp (D03).
 
 The [2 November package voice session log](history/package_decision_log_2026-11-02_voice_session.md) (S28) finalizes the 7 closure reason presets, enforces backend/UI date gating on "Patient Stopped Attending" (selectable strictly on Review Overdue), mandates a post-closure factual summary with invoice/refund navigation, establishes that closure never automatically alters finances or waives money, and formally rejects queued advance package purchases (replacement purchases are blocked until prior package is Completed or Closed, starting Day N+1).
 
@@ -84,6 +86,7 @@ The five former upcoming logs are now archived below. The updated MVP log and JS
 | S26 | [Package addendum, 28–29 October](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) | Subsequent directions and changes, owner-confirmation gaps, proposals and unresolved conflicts through 29 October |
 | S27 | [clinic_packages_discussion_patch_2026-11-02_181036_IST.md](history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md) | Third cumulative package record: 26 hard cap, 1/day, Sunday review arithmetic, closure authority, registration clock, payment gating reopened |
 | S28 | [package_decision_log_2026-11-02_voice_session.md](history/package_decision_log_2026-11-02_voice_session.md) | Fourth package record: 7 closure reasons, "Patient Stopped Attending" date rule, post-closure summary, queuing rejected, N+1 renewal start |
+| S29 | [clinic_package_decision_log_2026-11-03_pre_questionnaire.md](history/clinic_package_decision_log_2026-11-03_pre_questionnaire.md) | Fifth package record: payment-independent activation, fixed 30-day review confirmed, mandatory post-review notes in MVP, active package blocks complaint closure, counter recording sequence |
 
 The upcoming staging directory has no remaining consolidated source files. Future incoming records must be compared with the current topics rather than treated as automatic replacements.
 

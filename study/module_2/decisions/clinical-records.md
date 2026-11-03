@@ -1,6 +1,6 @@
 # Clinical records
 
-Current clinical decisions as of 27 October 2026. Settled rules below are authoritative for the proposed MVP; pending audits remain explicitly marked. These decisions do not establish deployed schema. Evidence and current issue dispositions are in the [reconciliation register](reconciliation-2026-10-27.md).
+Current clinical decisions as of 3 November 2026. Settled rules below are authoritative for the proposed MVP; pending audits remain explicitly marked. These decisions do not establish deployed schema. Evidence and current issue dispositions are in the [reconciliation register](reconciliation-2026-10-27.md).
 
 ## Current position
 
@@ -9,6 +9,7 @@ Current clinical decisions as of 27 October 2026. Settled rules below are author
 - **Locked:** ordinary therapy has a flat charge per complaint-visit. visit_services records the actual bundled procedures; those procedures do not have separate ordinary financial amounts, charge-status fields, or extra zero-value procedure lines. The ordinary billing_mode fork is dropped (R04–R05).
 - **Locked:** the clinician manually assigns ROUTINE or REHAB when creating the patient's complaint. Store that classification on the complaint and use it for subsequent visits; do not infer it automatically from complaint_catalog or reselect it per attendance (R07).
 - **Locked:** classification is permanent. A different classification requires a new complaint while preserving the original history. Closure of the original is **parked for audit**; no mandatory or automatic closure is approved (R08, R70).
+- **Active Package Blocks Complaint Closure (`[USER—DECIDED]`, S29 D07):** Staff cannot mark a complaint/course Closed while it has an associated Active package. This restriction applies even if the package has passed its soft review date (Review Overdue), as long as it remains Active with unused allowances. General complaint lifecycle auto-closure (e.g., after 30 days of inactivity) remains parked (A05).
 - **Locked direction:** every patient complaint references complaint_catalog; no uncataloged free-text complaint identity. Derive complaint anatomy through that catalog in the discussed model. Narrative clinical notes remain distinct. Shared body-region storage and migration remain audited (R11, R68).
 - **Locked:** admin can add a missing complaint-catalog entry before registering the patient's complaint, with an append-only who/when/what trail for the addition. General catalog versioning or a system-wide audit schema is not selected (R12).
 - **Locked:** routine and standalone service identities come from services. An individually purchased traction/cupping treatment is a separate performed occurrence; the same service can be bundled in ordinary care in another context (R10, R26).

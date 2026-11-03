@@ -1,6 +1,6 @@
 # Packages
 
-Packages are required for MVP. This page incorporates the four named package records through the **2 November 2026 voice session** (S25–S28), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), and the voice session decision log (S28), as well as direct user clarifications.
+Packages are required for MVP. This page incorporates the five named package records through the **3 November 2026 pre-questionnaire session** (S25–S29), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), the voice session decision log (S28), and the pre-questionnaire decision log (S29), as well as direct user clarifications.
 
 ## Established baseline
 
@@ -29,7 +29,7 @@ Packages are required for MVP. This page incorporates the four named package rec
   - **Review window:** Fixed **30 consecutive calendar dates**, Sundays included, beginning on registration day.
   - **Soft review:** Day 30 is the review date. No automatic hard time expiry; unused visits can continue under review warning/discretion until visit 26 completes the package or until manually closed (`[USER—DECIDED]`, S27 N03, S28 D12).
   - **Sundays & Calendar opportunities:** A 30-consecutive-day window contains 4 or 5 Sundays, yielding 26 or 25 non-Sunday opportunities. 26 is a hard quantity ceiling, not a commercial guarantee of 26 non-Sunday slots in 30 days (S27 §2.3).
-  - Owner confirmation of the 30-day commercial wording versus the original "one calendar month" description remains tracked (`[OPEN—OWNER]`).
+  - **Fixed 30-day review duration settled (`[USER—DECIDED]`, S29 D05):** The long offering uses fixed 30 consecutive calendar dates including Sundays. Settled as the operative software rule; retiring the earlier open commercial wording comparison (`OPEN—OWNER`).
 - **No holiday ledger:** Avoid an automatic absence/leave/holiday ledger or automatic extension engine (P08, P15; S27 §2.3).
 - **No arbitrary grace expiry buffer:** Defer any second hard-expiry window until empirical attendance data justifies it upon owner request (S27 N08, S28 D12).
 
@@ -40,7 +40,7 @@ Packages are required for MVP. This page incorporates the four named package rec
   2. **Review Overdue (Next date onward):** When an active, non-exhausted package has remaining credits, display a stronger confirmation warning before covered treatment (offering Continue / Back / Go to Packages).
 - **Continuation authority:** Admin or staff may proceed with overdue covered visits under discretion; does not require per-visit admin preapproval (S27 N06).
 - **Post-review audit feed:** A query-derived **Needs Attention** list grouped by package surfaces overdue covered redemptions for admin visibility in MVP. Persistent notification tables with a `Dismiss` action are deferred to future enhancements (S27 N07, §6.1).
-- **Justification notes (`[USER—CONDITIONAL]`, S27 N18):** If a post-review justification note feature is adopted, it is mandatory for receptionists and optional for admin. Whether MVP includes notes remains an open product choice.
+- **Post-review justification notes in MVP (`[USER—DECIDED]`, S29 D06):** Adopted for MVP. Mandatory for future receptionists; optional for admin. Explains why remaining benefits are consumed after review (e.g. Diwali clinic closure for 2–3 days); does not alter review dates or allowances. In the UI, reusable suggestions are surfaced via browser-native autocomplete or local storage, while the authoritative submitted justification is persisted server-side with the specific covered visit. Retires earlier `USER—CONDITIONAL` status.
 
 ## Lifecycle: Completed vs. Closed
 
@@ -77,24 +77,27 @@ The UI exposes selectable textual presets plus a custom "Other" option (not a ha
   - Immediately post-closure, display a summary: purchased price, total collected, remaining invoice balance, elapsed time/days, used visits, and relevant dates.
   - Provide direct navigation links to the purchase invoice (for collection or admin final waiver) and to the refund workflow (when built).
 - **Mistaken package handling (`[USER—WORKING DIRECTION]`, S27 N21, S28 O06):** Admin closes the mistaken package (using "Duplicate Package Purchased" or "Wrong Package Registered"); the associated purchase invoice is handled via the existing invoice waiver workflow. Full generic void/cascade module is deferred out of MVP.
+- **Intentional Forfeiture on Renewal (`[USER—DECIDED]`, S29 D01):** Closing an active package early to permit replacement intentionally forfeits remaining allowances (e.g. 18/26 used forfeits 8). No automatic transfer to replacement. Closing does not waive or erase debt on the purchase invoice; old debt remains independently collectible.
+- **Active Package Blocks Complaint Closure (`[USER—DECIDED]`, S29 D07):** Staff cannot mark a complaint/course Closed while it has an associated Active package (including Review Overdue active packages). General complaint auto-closure remains parked.
 
 ## Multiple packages, renewals, and strict purchase blocking
 
 - A patient may hold independent packages for *different* complaints.
 - **Rejection of Queuing Model (`[USER—DECIDED]`, S28 D13, D14):** Queued advance sales and delayed auto-activation are **formally rejected**.
-- **Strict MVP Purchase Blocking (`[USER—DECIDED]`):**
+- **Strict MVP Purchase Blocking (`[USER—DECIDED]`, S28 D13, S29 D01):**
   - Purchasing another package for the *same complaint* is **strictly blocked** while an existing package is Active.
-  - A replacement package can only be purchased after the existing same-complaint package has **Completed** (10/10 or 26/26 used) or been **Closed**. Merely crossing the review date does *not* unblock purchases if visits remain unused.
-- **Replacement Package Start Date (Approach A — Visit-Covered Anchor) (`[USER—DECIDED]`):**
+  - A replacement package can only be purchased after the existing same-complaint package has **Completed** (10/10 or 26/26 used) or been **Closed** with intentional forfeiture of unused visits. Merely crossing the review date does *not* unblock purchases if visits remain unused.
+- **Replacement Package Start Date (Approach A — Visit-Covered Anchor) (`[USER—DECIDED]`, S28 D14, S29 D02):**
   - When a replacement package is registered on Date $T$, the system checks whether any package has covered a visit for this complaint today:
-    - **If YES:** Coverage and the review clock start on **Day T+1 (tomorrow)**. This ensures that a patient who already received their 1-per-day covered visit today on an exhausted package cannot receive an unbilled second covered treatment from the new package on that same date.
+    - **If YES:** Coverage and the review clock start on **Day T+1 (tomorrow)**. This ensures that a patient who already received their 1-per-day covered visit today on an exhausted package cannot receive an unbilled second covered treatment from the new package on that same date (S29 D02).
     - **If NO:** Coverage starts **Today (Day T)** immediately. For example, if an overdue package was closed after a multi-day absence without treatment today, or a mistaken package was registered and closed without treatment, the replacement package is immediately active and covers today's visit.
 - **No Complex Picker:** Because overlapping eligible entitlements for the same complaint cannot exist, checkout requires no entitlement selection picker (S28 D14).
 
 ## Payment and activation
 
 - **Review clock anchor:** Registration/purchase date begins the review clock, irrespective of when payment settles (S27 N13, S28 D04, `[USER—DECIDED]`).
-- **Payment gating (`[OPEN—OWNER]`, S27 N14, S28 O01):** Explicitly reopened for owner consultation. User is evaluating full prepayment, partial payment with a grace pause buffer, or proportional allowance. Neither unconditional zero-payment coverage nor strict full-prepayment gating is locked; status is strictly **OPEN—OWNER**.
+- **Payment-independent activation (`[USER—DECIDED]`, S29 D04):** Registration activates the package immediately regardless of payment collected. ₹0 received, partially paid, or fully paid all activate coverage. Unpaid balance does not automatically pause, expire, or close coverage; stopping coverage requires a deliberate authorized manual package closure. Purchase invoice receivable remains financially independent. Retires the earlier `OPEN—OWNER` payment-gating marker.
+- **Recording Timing (`[USER—DECIDED]`, S29 D03):** There is no historical physical treatment timestamp in the data model. Coverage eligibility is validated at the moment reception records the visit in software (e.g. 10:00 AM physical treatment, 11:00 AM package registration, 11:05 AM visit logged → software sees active package at 11:05 AM and covers the visit). Retires the earlier treatment-timestamp concern.
 - **Finance separation:** Purchase invoice balances remain visible and collectible independently of treatment coverage. No fictitious ₹0 receipts are created. The general receipt and finality rules in [payments and settlement](payments-and-settlement.md) remain in force.
 
 ## Pricing and offering configuration
@@ -104,12 +107,9 @@ The UI exposes selectable textual presets plus a custom "Other" option (not a ha
 
 ## Open decisions and engineering audits
 
-1. **Owner payment policy (O-01 / S28 O01):** Owner determination on whether packages require full prepayment, allow partial payment with a time pause, or permit zero-payment coverage.
-2. **Long offering commercial wording (O-02 / S28 O02):** Formal owner confirmation of the fixed 30-day term vs "one calendar month" description.
-3. **Reopening and corrections after closure (S28 O05):** Policy on whether Closed packages can ever be reopened; generic void/cascade workflows deferred out of MVP.
-4. **First treatment before package registration (S28 O04):** Counter sequence handling where physical treatment precedes package registration and visit logging.
-5. **Exact DDL and redemption integrity (O-15, O-17, O-18; S28 O09):** Atomic purchase-and-invoice issuance transaction, package-to-visit FK/redemption records, last-allowance race locking, and prevention of duplicate submissions.
-6. **Existing package migration (O-20, O-28; S28 O08):** Import strategy and mapping for active patient packages from legacy data.
+1. **Reopening and corrections after closure (S28 O05):** Policy on whether Closed packages can ever be reopened; generic void/cascade workflows deferred out of MVP.
+2. **Exact DDL and redemption integrity (O-15, O-17, O-18; S28 O09):** Atomic purchase-and-invoice issuance transaction, package-to-visit FK/redemption records, last-allowance race locking, and prevention of duplicate submissions.
+3. **Existing package migration (O-20, O-28; S28 O08):** Import strategy and mapping for active patient packages from legacy data.
 
 ## Evidence
 
@@ -117,4 +117,5 @@ The UI exposes selectable textual presets plus a custom "Other" option (not a ha
 - [Subsequent addendum, 28–29 October 2026](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) — S26, A31–A32, initial 26-cap leaning.
 - [Post-addendum discussion patch, 2 November 2026](history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md) — S27, N01–N24, O-01–O-28, owner-confirmed 26 cap and 1/day limit, Sunday counting rule, role-gated closure, registration clock, payment gating reopened.
 - [Voice session decision log, 2 November 2026](history/package_decision_log_2026-11-02_voice_session.md) — S28, D01–D14, 7 closure reasons, "Patient Stopped Attending" date rule, post-closure factual summary, rejection of queuing, N+1 renewal start.
+- [Pre-questionnaire decision log, 3 November 2026](history/clinic_package_decision_log_2026-11-03_pre_questionnaire.md) — S29, D01–D08, payment-independent activation, fixed 30-day review confirmed, mandatory post-review notes in MVP, active package blocks complaint closure, counter recording sequence.
 - [Reconciliation register](reconciliation-2026-10-27.md) — Cross-module decisions, archive manifest, and A11 workstream.
