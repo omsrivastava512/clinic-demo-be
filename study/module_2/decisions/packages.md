@@ -1,6 +1,6 @@
 # Packages
 
-Packages are required for MVP. This page incorporates the eight named package records through the **3 November 2026 final voice decision addendum** (S25–S32), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), voice session decision log (S28), pre-questionnaire decision log (S29), reconstructed final decision questionnaire (S30), Q18–Q40 questionnaire addendum (S31), and the final voice decision addendum (S32), as well as direct user clarifications.
+Packages are required for MVP. This page incorporates the nine named package records through the **3 November 2026 call transcript and follow-up discussion log** (S25–S33), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), voice session decision log (S28), pre-questionnaire decision log (S29), reconstructed final decision questionnaire (S30), Q18–Q40 questionnaire addendum (S31), the final voice decision addendum (S32), and the call transcript discussion log (S33), as well as direct user clarifications.
 
 ## Established baseline
 
@@ -35,6 +35,8 @@ Packages are required for MVP. This page incorporates the eight named package re
   - Admin has full discretion to set or increase this limit (e.g. to 2 or more) **at purchase or anytime later**, including on 26-visit packages.
   - Checked dynamically at visit redemption against the package's remaining allowances and today's consumed treatments.
   - **Explicit MVP Concession:** Changes to this operational cap are not tracked in a dedicated audit log table in MVP; this blind spot is intentionally accepted as future scope.
+- **Package Freeze/Pause Explicitly Rejected for MVP (`[USER—DECIDED]`, S33 §6):** No package freeze or pause mechanism exists in MVP. Passing the soft review date does not destroy unused covered visits, and the clinic may permit eligible visits afterward under staff discretion. Freeze questionnaire items T77–T86 require no further answers for MVP.
+- **Category Terminology (`[USER—DECIDED]`, S33 §3):** "Routine" and "Regular" are identical category labels referring to standard therapy. "Rehabilitation" is a separate category.
 - **No holiday ledger:** Avoid an automatic absence/leave/holiday ledger or automatic extension engine (P08, P15; S27 §2.3).
 - **No arbitrary grace expiry buffer:** Defer any second hard-expiry window until empirical attendance data justifies it upon owner request (S27 N08, S28 D12).
 
@@ -140,7 +142,10 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 ## Payment and activation
 
 - **Review clock anchor (`[USER—DECIDED]`, S30 Q01, Q02):** The review clock begins on the **package start date (`start_date`)**, which is $T$ or $T+1$ based on prior same-day coverage, irrespective of payment collection date.
-- **Payment-independent activation (`[USER—DECIDED]`, S29 D04):** Registration activates the package immediately regardless of payment collected. ₹0 received, partially paid, or fully paid all activate coverage. Unpaid balance does not automatically pause, expire, or close coverage; stopping coverage requires a deliberate authorized manual package closure. Purchase invoice receivable remains financially independent. Retires the earlier `OPEN—OWNER` payment-gating marker.
+- **Payment-independent activation (`[USER—DECIDED]`, S29 D04, S33 §2):** Registration activates the package immediately regardless of payment collected. ₹0 received, partially paid, or fully paid all activate coverage.
+  - **Full entitlement granted (`[CONFIRMED]`, S33 §2):** The purchased package receives its full configured visit entitlement (10 or 26) in software immediately. Neither partial payment nor an informal payment deadline automatically reduces coverage, blocks visits, closes the package, or alters the offering.
+  - **Illustrative owner arithmetic vs software (`[CONFIRMED]`, S33 §2):** The clinic owner's manual per-visit pricing math (e.g. valuing the first 10 visits at package price and subsequent visits at ordinary per-visit rates) is an illustrative manual mental model, not an automated entitlement algorithm. If the clinic permits a 17th package-covered visit despite a ₹3,000 partial payment, that is allowed. Staff see outstanding amount indicators in relevant patient workflows and decide whether to continue treating, request payment, or explicitly close the package.
+  - Unpaid balance does not automatically pause, expire, or close coverage; stopping coverage requires a deliberate authorized manual package closure. Purchase invoice receivable remains financially independent. Retires the earlier `OPEN—OWNER` payment-gating marker.
 - **Recording Timing (`[USER—DECIDED]`, S29 D03):** There is no historical physical treatment timestamp in the data model. Coverage eligibility is validated at the moment reception records the visit in software (e.g. 10:00 AM physical treatment, 11:00 AM package registration, 11:05 AM visit logged → software sees active package at 11:05 AM and covers the visit). Retires the earlier treatment-timestamp concern.
 - **Finance separation:** Purchase invoice balances remain visible and collectible independently of treatment coverage. No fictitious ₹0 receipts are created. The general receipt and finality rules in [payments and settlement](payments-and-settlement.md) remain in force.
 - **Package Coverage Unit (`[USER—DECIDED]`, S32 Q37):** A package covers **only the standard flat visit charge for an eligible covered visit linked to that package's complaint**. Procedures bundled within that ordinary visit are part of the covered visit. Any separately billed standalone treatment or service remains independently chargeable and is not covered by the package. Independent examination/lapse fees and laboratory charges also remain outside package allowances.
@@ -180,6 +185,20 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 - **DR-01 — Future Generic Invoice and Line Voiding (Status: DEFERRED FOR POST-MVP REVIEW):** The owner requested recording a personal post-MVP review item regarding adding a generic mechanism to void/reverse entire invoices or single invoice lines across packages, visits, examinations, and standalone services. The owner evaluated this against proliferating special-case exceptions and accepted the MVP workaround (whole-invoice waiver + replacement invoicing). This is a document-level future review marker, not approval to build an application audit-log table or void engine in MVP.
 - **DR-02 — Whole-Balance Terminal Waiver (Status: ACCEPTED MVP BEHAVIOR):** A waiver applies to the entire remaining collectible invoice balance and terminally settles the invoice. It does not support arbitrary partial-value or single-line waivers in MVP.
 
+### Package Upgrade Proposal (Under Design — Pending Scope Decision) (`[PROPOSED]`, S33 §5)
+- **Real requirement:** A patient who bought a 10-visit Routine or Rehabilitation package may later ask to pay the difference and obtain the corresponding 26-visit package.
+- **Scope boundary:** Same-category upgrade only (Routine 10 → Routine 26; Rehabilitation 10 → Rehabilitation 26). Cross-category upgrade is excluded.
+- **Entitlement and economics if approved:**
+  - Total allowance becomes 26 visits including those already consumed (net increase of +16 visits, not 10 + 26).
+  - Additional charge is the difference between the 26-visit and 10-visit offering catalog prices, recorded as a genuine additional invoice line charge. Past payments remain attached to their original invoice; a waiver is not a payment transfer.
+  - Original package's coverage-start anchor (`start_date`) governs the 30-day review milestone (e.g. original start 1 Nov, upgrade requested 11 Nov → review milestone is 30 Nov, not a newly restarted 30 days).
+- **Preferred architecture:** Linked upgrade record / dependent "upgrade package" referencing parent 10-visit package ID. Not independently purchasable. Original Completed/Closed history is not rewritten or reactivated.
+- **Safeguards to enforce:** Deny standalone upgrade creation, duplicate upgrades, mismatched complaint/category, and double-counted visits.
+- **Open design checkpoints awaiting decision:**
+  - *Eligibility after completion:* Upgrade only while original 10-visit package is Active, or also after it reaches Completed?
+  - *Time window:* If post-completion upgrades are permitted, is there an elapsed-time limit?
+  - *MVP Scoping:* User is receptive if reasonably bounded, but not committed to shipping in MVP; kept as an open proposal under design.
+
 ### Questionnaire Completion & Developer Acceptance Checks
 The 40-question package questionnaire (**Q01–Q40**) is **100% complete and closed for business decisions**. All items have been decided, dropped as invalid scenarios, or explicitly deferred to separate future modules.
 
@@ -202,4 +221,5 @@ Developer acceptance checks for implementation testing include:
 - [Reconstructed final decision questionnaire, 3 November 2026](history/package_module_questionnaire_reconstructed_2026-11-03.md) — S30, Q01–Q16 settled (package start date anchor, configurable daily cap default 1, closure irreversibility for clerical errors, renewal debt assist-not-block, justification immutability, 2 persistent query lists, nonpayment independence), Q17 dropped, Q18–Q40 unanswered baseline.
 - [Q18–Q40 questionnaire addendum, 3 November 2026](history/package_module_Q18-Q40_decision_addendum_2026-11-03.md) — S31, Q18–Q31 settled (single combined invoice, mistaken package refund/waiver workflows, Cash/UPI only, entitlement survival on waiver, admin-only pricing, no price override/free sale, no disable UI, unconfigured price block, internal display); DR-01/DR-02 logged; Q32–Q40 active baseline.
 - [Final voice decision addendum, 3 November 2026](history/package_module_final_voice_decision_addendum_2026-11-03_Q32_onwards.md) — S32, Q32–Q40 settled (paper packages on paper, digitization deferred to separate module, Q37 flat visit coverage, Q38 nonblocking warning, Q39 general descending invoice dues, Q40 committed care unchanged); Q01–Q40 questionnaire formally complete.
+- [Call transcript and follow-up discussion log, 3 November 2026](history/package_call_transcript_discussion_log_2026-11-03_2231_IST.md) — S33, confirmed admin refund authority (T73), freeze/pause rejected for MVP, Routine=Regular synonymy, full entitlement on partial payment, and 10→26 package upgrade proposal.
 - [Reconciliation register](reconciliation-2026-10-27.md) — Cross-module decisions, archive manifest, and A11 workstream.

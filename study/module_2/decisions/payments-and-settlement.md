@@ -13,6 +13,7 @@ Current payment decisions as of 29 October 2026. Settled rules below are authori
 - **Locked:** The current delivery phase uses admin only. When the planned reception role is introduced, it may finish initial collection after a browser interruption, checking the stored outcome before another write. For positive invoices: Pay Later/no receipt leaves UNPAID, a partial positive receipt leaves PARTIALLY_PAID, and full collection closes PAID. Pay Later ends that initial interaction; later receipts remain allowed under R39. Covered-only zero invoices retain only Mark as paid, with no payment row. (R38,R74; S24).
 - **Locked:** Admin now, and the planned reception role when introduced, may record repeated positive receipts against UNPAID or PARTIALLY_PAID invoices with collectible balance, including after Pay Later and on later days. There is no initial-checkout-only, invoice-age or arbitrary repayment-count limit. Partial collection leaves PARTIALLY_PAID; full balance collection closes PAID. Reception need not hand those receipts to admin. Wallets and automatic cross-invoice allocation remain excluded. (R39; S24).
 - **Locked:** only admin/owner may waive. The planned reception role must have neither waiver controls nor backend waiver permission. Permission to record later receipts does not permit changing issued lines, saved payments or clinical history (R40; S24).
+- **Refund Authorization — Admin Only (`[USER—DECIDED]`, S33 §4, T73):** Only admin has authorization to execute refunds in the planned refund module. The planned reception role must have neither refund controls nor backend refund permission. T73 explicitly settles that reception cannot issue refunds under any circumstances.
 
 ## Payment records and transaction boundary
 
@@ -54,11 +55,11 @@ Daily collections sum actual dated positive payment rows, including receipts on 
 
 No separately numbered/printed/sent patient payment receipt artifact is required. Confirm saved amount, methods, state, and balance only after backend-confirmed success; failed/unknown outcomes cannot claim success. Preserve the form for manual retry after confirmed rollback; lost responses require the separate idempotency audit (R58–R61).
 
-## Package payment interaction and refund workflows — S25–S32 reconciliation
+## Package payment interaction and refund workflows — S25–S33 reconciliation
 
 - **Payment-Independent Package Activation (`[USER—DECIDED]`, S29 D04):** A package purchase invoice's balance is financially independent from package entitlement. Registration activates the package immediately regardless of whether ₹0, partial, or full payment is received. Unpaid balances do not suspend, expire, or close package coverage.
 - **Financial Waiver Entitlement Invariance (`[USER—DECIDED]`, S31 Q25):** Waiving a package purchase invoice (e.g. for a complimentary package) settles the financial receivable only; the package remains active with all 10 or 26 covered visits intact.
-- **Planned Refund Module (`[USER—DECIDED]`, S31 Q22):** The refund module is in scope and being built. Every recorded refund requires a **mandatory, non-empty reason** explaining the reimbursement.
+- **Planned Refund Module (`[USER—DECIDED]`, S31 Q22, S33 §4):** The refund module is in scope and being built. Every recorded refund requires **admin-only authorization (T73)** and a **mandatory, non-empty reason** explaining the reimbursement. Early termination settlements and refunds are discretionary case-by-case clinic decisions; software does not automate or guarantee prorated refunds.
 - **Strict Tender Boundaries (`[USER—DECIDED]`, S31 Q22):** Payment methods are strictly **Cash and UPI only**. No patient credit wallet, no unallocated patient balance, no inter-invoice payment reallocation, and no dummy tender methods exist.
 - **Mistaken Package Financial Correction (`[USER—DECIDED]`, S31 Q20–Q23):**
   - *Unpaid single-line invoice (Q20):* Admin closes mistaken package and terminally waives the whole invoice balance.
