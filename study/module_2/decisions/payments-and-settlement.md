@@ -54,7 +54,7 @@ Daily collections sum actual dated positive payment rows, including receipts on 
 
 No separately numbered/printed/sent patient payment receipt artifact is required. Confirm saved amount, methods, state, and balance only after backend-confirmed success; failed/unknown outcomes cannot claim success. Preserve the form for manual retry after confirmed rollback; lost responses require the separate idempotency audit (R58–R61).
 
-## Package payment interaction and refund workflows — S25–S31 reconciliation
+## Package payment interaction and refund workflows — S25–S32 reconciliation
 
 - **Payment-Independent Package Activation (`[USER—DECIDED]`, S29 D04):** A package purchase invoice's balance is financially independent from package entitlement. Registration activates the package immediately regardless of whether ₹0, partial, or full payment is received. Unpaid balances do not suspend, expire, or close package coverage.
 - **Financial Waiver Entitlement Invariance (`[USER—DECIDED]`, S31 Q25):** Waiving a package purchase invoice (e.g. for a complimentary package) settles the financial receivable only; the package remains active with all 10 or 26 covered visits intact.
@@ -66,6 +66,11 @@ No separately numbered/printed/sent patient payment receipt artifact is required
   - *Partially paid mixed invoice (Q22):* Admin closes package, issues a refund against the old invoice for money attributable to the package with a mandatory reason, terminally waives residual balance on the old invoice, and registers an ordinary new payment on the replacement package invoice.
   - *Fully paid package (Q23):* Admin closes package, records full refund with mandatory reason, and enters an ordinary new payment on the replacement package invoice.
 - **Accepted Reporting Limitation (`[USER—DECIDED]`, S31 Q22):** The clinic bookkeeping relies on recorded operations and mandatory reasons. Recording a cash refund against an old invoice and a new cash payment against a new invoice balances net drawer cash, but reports will show gross cash disbursements and receipts even if cash wasn't physically exchanged. The owner explicitly accepts this gross reporting caveat; verification of momentary physical cash handovers or extra audit subsystems are rejected.
+- **Needs Attention & Debts Model (`[USER—DECIDED]`, S32 Q39):**
+  - Packages carry no payment status or balance; invoices alone carry payment status and outstanding debt.
+  - There is no separate package unpaid category or special priority. General due-invoice attention is sorted by remaining balance descending.
+  - **No minimum balance threshold:** Any positive balance, including ₹100, remains visible until fully settled by payment or waiver.
+  - In addition to financial dues, Needs Attention can surface clinic-defined patient warning notes (e.g. behavioral notices) across multiple relevant application locations.
 - **Deferred Void Mechanism (`DR-01`, S31):** Adding generic invoice-level or invoice-line void/reversal features is deferred for post-MVP review.
 - **Terminal Whole-Balance Waiver (`DR-02`, S31):** Waivers apply strictly to the whole remaining balance; partial or line-level waivers are not supported in MVP.
 

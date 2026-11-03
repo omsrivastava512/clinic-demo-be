@@ -1,6 +1,6 @@
 # Packages
 
-Packages are required for MVP. This page incorporates the seven named package records through the **3 November 2026 Q18–Q40 questionnaire addendum** (S25–S31), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), voice session decision log (S28), pre-questionnaire decision log (S29), reconstructed final decision questionnaire (S30), and the Q18–Q40 questionnaire addendum (S31), as well as direct user clarifications.
+Packages are required for MVP. This page incorporates the eight named package records through the **3 November 2026 final voice decision addendum** (S25–S32), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), voice session decision log (S28), pre-questionnaire decision log (S29), reconstructed final decision questionnaire (S30), Q18–Q40 questionnaire addendum (S31), and the final voice decision addendum (S32), as well as direct user clarifications.
 
 ## Established baseline
 
@@ -131,6 +131,11 @@ The UI exposes selectable textual presets plus a custom editable free-text field
     - **If YES:** Coverage and the review clock start on **Day T+1 (tomorrow)**. This ensures that a patient who already received their 1-per-day covered visit today on an exhausted package cannot receive an unbilled second covered treatment from the new package on that same date (`S29 D02`, `S30 Q01`).
     - **If NO:** Coverage and the review clock start **Today (Day T)** immediately (`S30 Q02`). For example, if an overdue package was closed after a multi-day absence without treatment today, or a mistaken package was registered and closed without treatment, the replacement package is immediately active and covers today's visit.
 - **No Complex Picker:** Because overlapping eligible entitlements for the same complaint cannot exist, checkout requires no entitlement selection picker (S28 D14).
+- **Cross-Complaint Warning Notice (`[USER—DECIDED]`, S32 Q38):** When a patient has an active package for one complaint (e.g. knee) and staff selects a different complaint (e.g. shoulder) for today's treatment:
+  - The UI displays a **nonblocking informational warning notice** identifying the active package on the other complaint.
+  - Ordinary correct billing for the selected complaint proceeds without interruption.
+  - **No mandatory acknowledgment modal** is required (rejects Option C).
+  - No cross-complaint package consumption or entitlement transfer occurs.
 
 ## Payment and activation
 
@@ -138,6 +143,13 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 - **Payment-independent activation (`[USER—DECIDED]`, S29 D04):** Registration activates the package immediately regardless of payment collected. ₹0 received, partially paid, or fully paid all activate coverage. Unpaid balance does not automatically pause, expire, or close coverage; stopping coverage requires a deliberate authorized manual package closure. Purchase invoice receivable remains financially independent. Retires the earlier `OPEN—OWNER` payment-gating marker.
 - **Recording Timing (`[USER—DECIDED]`, S29 D03):** There is no historical physical treatment timestamp in the data model. Coverage eligibility is validated at the moment reception records the visit in software (e.g. 10:00 AM physical treatment, 11:00 AM package registration, 11:05 AM visit logged → software sees active package at 11:05 AM and covers the visit). Retires the earlier treatment-timestamp concern.
 - **Finance separation:** Purchase invoice balances remain visible and collectible independently of treatment coverage. No fictitious ₹0 receipts are created. The general receipt and finality rules in [payments and settlement](payments-and-settlement.md) remain in force.
+- **Package Coverage Unit (`[USER—DECIDED]`, S32 Q37):** A package covers **only the standard flat visit charge for an eligible covered visit linked to that package's complaint**. Procedures bundled within that ordinary visit are part of the covered visit. Any separately billed standalone treatment or service remains independently chargeable and is not covered by the package. Independent examination/lapse fees and laboratory charges also remain outside package allowances.
+- **Needs Attention & Invoice Debts Model (`[USER—DECIDED]`, S32 Q39):**
+  - **No Package Payment Status:** Packages carry no Paid/Unpaid status or balance. The **invoice** is the financial entity carrying payment status and receivables.
+  - **No Dedicated "Unpaid Packages" Section:** Needs Attention surfaces a general **due-invoices view, sorted by current unpaid balance descending**.
+  - **No Minimum Balance Threshold:** Any positive balance, including ₹100, remains visible until fully settled by payment or waiver.
+  - Package invoices frequently rank high due to high catalog prices, but they have no special category or priority.
+  - **Clinic Warning Notes:** Needs Attention is a broader attention mechanism that can surface clinic-defined patient warning notes (e.g. behavioral notices) in multiple relevant application locations, not just the dashboard.
 
 ## Pricing and offering configuration
 
@@ -154,7 +166,10 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 
 1. **Reopening and corrections after closure (S28 O05, S30 Q12, Q13):** Deliberate and accidental closures are strictly non-reversible in MVP (`S30 Q12`, `Q13`). Generic void/cascade workflows remain deferred out of MVP.
 2. **Exact DDL and redemption integrity (O-15, O-17, O-18; S28 O09):** Atomic purchase-and-invoice issuance transaction, `start_date` column distinct from `purchased_at`, package-to-visit FK/redemption records, last-allowance race locking, and prevention of duplicate submissions.
-3. **Existing package migration (O-20, O-28; S28 O08, S30 Q32–Q36, S31 Q32–Q36):** Import strategy and mapping for active patient packages from legacy data remain conditional on live data availability (determined by Q32).
+3. **Existing package migration & historical data entry (O-20, O-28; S28 O08, S30 Q32–Q36, S31 Q32–Q36, S32 Q32–Q36):**
+   - **Preexisting Paper Packages (`[USER—DECIDED]`, S32 Q32):** Real paper packages may exist and will continue to be tracked and honored on paper until fulfilled. The new software launches clean with **no live active-package onboarding or opening-balance import**.
+   - **Retrospective Digitization Deferred (`[USER—DECIDED]`, S32 Q33–Q36):** Historical paper data entry is **explicitly deferred to a separately developed and priced module** for retrospective transcription from notebooks/paper. No active onboarding, estimate rules, contract conversion, or old debt import is approved today. Fictitious new sales on launch day to represent legacy packages are strictly forbidden.
+4. **Erroneous Committed Visits (`[USER—DECIDED]`, S32 Q40):** If staff accidentally records a treatment against the wrong complaint and commits the visit, invoice, and package redemption, the committed record **remains unchanged in MVP** (Option A). The clinic relies on substantial verification **before creation/commitment** to prevent entry errors. No post-commit visit editing, package reassignment, or visit-void tool is authorized. Manual investigation occurs outside software.
 
 ### Dropped Scenarios from this Decision Round
 - **Clinical Reclassification during Active Package (S30 Q17):** Dropped as an invalid clinical scenario. Moving patients mid-course between Routine and Rehabilitation will not occur; tentative refund/waiver discussion during exploratory brainstorming is explicitly not approved policy.
@@ -165,10 +180,17 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 - **DR-01 — Future Generic Invoice and Line Voiding (Status: DEFERRED FOR POST-MVP REVIEW):** The owner requested recording a personal post-MVP review item regarding adding a generic mechanism to void/reverse entire invoices or single invoice lines across packages, visits, examinations, and standalone services. The owner evaluated this against proliferating special-case exceptions and accepted the MVP workaround (whole-invoice waiver + replacement invoicing). This is a document-level future review marker, not approval to build an application audit-log table or void engine in MVP.
 - **DR-02 — Whole-Balance Terminal Waiver (Status: ACCEPTED MVP BEHAVIOR):** A waiver applies to the entire remaining collectible invoice balance and terminally settles the invoice. It does not support arbitrary partial-value or single-line waivers in MVP.
 
-### Remaining Questionnaire Items (Q32–Q40 Baseline)
-- **Q32 — Active Packages Outside System (`UNANSWERED — FIRST NEXT QUESTION`):** On deployment day, are there active packages on paper/Excel to import? Options: A (real active packages), B (none, launch clean), C (discardable prototype/test data only).
-- **Q33–Q36 — Historical Migration (`UNANSWERED — CONDITIONAL ON Q32`):** Import method (Q33), incomplete paper records (Q34), legacy commercial terms (Q35), historical debt import (Q36).
-- **Q37–Q40 — Checkout & Edge Cases (`UNANSWERED`):** Standalone services coverage (Q37), different-complaint UI warning (Q38), unpaid packages in Needs Attention (Q39), erroneous committed visit correction (Q40).
+### Questionnaire Completion & Developer Acceptance Checks
+The 40-question package questionnaire (**Q01–Q40**) is **100% complete and closed for business decisions**. All items have been decided, dropped as invalid scenarios, or explicitly deferred to separate future modules.
+
+Developer acceptance checks for implementation testing include:
+- Admin-only price configuration for the four offerings;
+- Strict purchase blocking when package price is unconfigured;
+- Accurate invoice, refund, and whole-balance waiver arithmetic;
+- Truthful outstanding-invoice display in Needs Attention for any positive balance (including ₹100) sorted descending;
+- Precommit verification flow to prevent erroneous committed visits;
+- Nonblocking cross-complaint warning notice without mandatory modal;
+- Total independence of package entitlement from invoice payment/waiver status.
 
 ## Evidence
 
@@ -179,4 +201,5 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 - [Pre-questionnaire decision log, 3 November 2026](history/clinic_package_decision_log_2026-11-03_pre_questionnaire.md) — S29, D01–D08, payment-independent activation, fixed 30-day review confirmed, mandatory post-review notes in MVP, active package blocks complaint closure, counter recording sequence.
 - [Reconstructed final decision questionnaire, 3 November 2026](history/package_module_questionnaire_reconstructed_2026-11-03.md) — S30, Q01–Q16 settled (package start date anchor, configurable daily cap default 1, closure irreversibility for clerical errors, renewal debt assist-not-block, justification immutability, 2 persistent query lists, nonpayment independence), Q17 dropped, Q18–Q40 unanswered baseline.
 - [Q18–Q40 questionnaire addendum, 3 November 2026](history/package_module_Q18-Q40_decision_addendum_2026-11-03.md) — S31, Q18–Q31 settled (single combined invoice, mistaken package refund/waiver workflows, Cash/UPI only, entitlement survival on waiver, admin-only pricing, no price override/free sale, no disable UI, unconfigured price block, internal display); DR-01/DR-02 logged; Q32–Q40 active baseline.
+- [Final voice decision addendum, 3 November 2026](history/package_module_final_voice_decision_addendum_2026-11-03_Q32_onwards.md) — S32, Q32–Q40 settled (paper packages on paper, digitization deferred to separate module, Q37 flat visit coverage, Q38 nonblocking warning, Q39 general descending invoice dues, Q40 committed care unchanged); Q01–Q40 questionnaire formally complete.
 - [Reconciliation register](reconciliation-2026-10-27.md) — Cross-module decisions, archive manifest, and A11 workstream.
