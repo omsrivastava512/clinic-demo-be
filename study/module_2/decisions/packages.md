@@ -1,6 +1,6 @@
 # Packages
 
-Packages are required for MVP. This page incorporates the six named package records through the **3 November 2026 reconstructed final questionnaire** (S25–S30), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), voice session decision log (S28), pre-questionnaire decision log (S29), and the reconstructed final decision questionnaire (S30), as well as direct user clarifications.
+Packages are required for MVP. This page incorporates the seven named package records through the **3 November 2026 Q18–Q40 questionnaire addendum** (S25–S31), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), voice session decision log (S28), pre-questionnaire decision log (S29), reconstructed final decision questionnaire (S30), and the Q18–Q40 questionnaire addendum (S31), as well as direct user clarifications.
 
 ## Established baseline
 
@@ -97,7 +97,20 @@ The UI exposes selectable textual presets plus a custom editable free-text field
   - Immediately post-closure, display a summary: purchased price, total collected, remaining invoice balance, elapsed time/days, used visits, and relevant dates.
   - Provide direct navigation links to the purchase invoice (for collection or admin final waiver) and to the refund workflow (when built).
 - **Closed Package History Visibility (`[USER—DECIDED]`, S30 Q16):** Completed and Closed packages remain visible in patient history under a dedicated "Completed/Closed" section showing original allowance, usage, closure reason, and associated invoice link.
-- **Mistaken package handling (`[USER—WORKING DIRECTION]`, S27 N21, S28 O06):** Admin closes the mistaken package (using "Duplicate Package Purchased" or "Wrong Package Registered"); the associated purchase invoice is handled via the existing invoice waiver workflow. Full generic void/cascade module is deferred out of MVP.
+- **Mistaken Package Handling & Workarounds (`[USER—DECIDED]`, S31 Q20, Q21, Q22, Q23):**
+  - **Unpaid single-line invoice (Q20):** Admin closes the mistaken package (with reason "Duplicate Package Purchased" or "Wrong Package Registered"); if the invoice contains only that package and ₹0 paid, admin executes a terminal whole-invoice waiver. The closed package is never reinstated.
+  - **Unpaid mixed invoice (Q21):** If an invoice contains an erroneous package (e.g. ₹4,500) and legitimate charges (e.g. ₹350 exam) with ₹0 paid, selective line voiding is not supported in MVP. Admin closes the erroneous package with reason, terminally waives the entire original invoice (₹4,850), and creates a clean replacement invoice for the legitimate charges (₹350 exam). If the exam was already paid, admin closes the package and terminally waives the remaining package balance (₹4,500).
+  - **Partially paid mistaken package (Q22):** In mixed cases with partial collection (e.g. ₹4,850 invoice with ₹1,500 paid = ₹350 exam + ₹1,150 package): (1) close erroneous package with reason, (2) record a ₹1,150 refund against the original invoice in the planned refund module with a mandatory non-empty reason, (3) terminally waive residual balance on old invoice, and (4) if replacement package is purchased, issue a fresh invoice for the correct package and enter ₹1,150 as a new payment (Cash/UPI).
+  - **Fully paid mistaken package (Q23):** If the entire package charge (₹4,500) was collected: close package with reason, record full ₹4,500 refund in the planned refund module with a mandatory reason, and if replacement package is purchased, issue new invoice and record new ₹4,500 payment.
+- **Planned Refund Module & Tender Boundaries (`[USER—DECIDED]`, S31 Q22):**
+  - The refund module is in scope and being built. Every recorded refund requires a **mandatory non-empty reason** explaining why.
+  - Payment methods are strictly **Cash and UPI only**. Patient credit wallets, inter-invoice payment transfers, and dummy payment methods are explicitly rejected.
+  - The owner explicitly accepts the gross-cash reporting caveat (recording refund + new payment balances net cash in the drawer, but reports will show gross cash out and in); extra verification of momentary physical cash handovers or additional audit subsystems are rejected.
+- **Financial Waiver Does Not Revoke Entitlement (`[USER—DECIDED]`, S31 Q25):** Full invoice waiver of a valid package purchase settles the financial receivable only; the package remains active with all 10 or 26 covered visits usable.
+- **Closure Presets Exclude "Refunded" (`[USER—DECIDED]`, S31 Q26):** "Refunded" is not an approved package closure preset; refunds are distinct transactions handled via the refund module with their own mandatory reasons.
+- **No Retroactive Coverage (`[USER—DECIDED]`, S31):** Past billed visits cannot be retroactively converted to package-covered visits after correcting a complaint or package registration mistake.
+- **Internal Clinic Display (`[USER—DECIDED]`, S31):** The software is an internal clinic record tool (no patient portal). The invoice view displays original billed amount and current amount due; payments and waivers are handled in their own dedicated records.
+- **Single Combined Invoice for Package Checkouts (`[USER—DECIDED]`, S31 Q19):** At counter checkout, if a patient purchases a package alongside other services (e.g. consultation/examination fee, standalone services), the checkout issues **one combined invoice** with distinct invoice lines for each item (Option B). Creating a dedicated invoice solely to isolate package accounting is explicitly rejected.
 - **Intentional Forfeiture on Renewal (`[USER—DECIDED]`, S29 D01, S30 Q04):** Closing an active package early to permit replacement intentionally forfeits remaining allowances (e.g. 18/26 used forfeits 8). No automatic transfer to replacement. Closing does not waive or erase debt on the purchase invoice; old debt remains independently collectible.
 - **Active Package Blocks Complaint Closure (`[USER—DECIDED]`, S29 D07):** Staff cannot mark a complaint/course Closed while it has an associated Active package (including Review Overdue active packages). General complaint auto-closure remains parked.
 
@@ -129,23 +142,33 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 ## Pricing and offering configuration
 
 - **Independent tier pricing (`[USER—DECIDED]`, S27 N23):** Routine and rehabilitation are distinct package categories, each with separately configurable package prices for short and long offerings.
+- **Clinic-Configurable Prices (`[USER—DECIDED]`, S31 Q27):** Catalog prices for all four offerings (Routine 10, Routine 26, Rehabilitation 10, Rehabilitation 26) are configured by each clinic during setup, not fixed in the specification. Illustrative numbers like ₹4,500 in discussions are examples only.
+- **Admin-Only Catalog Modifications (`[USER—DECIDED]`, S31 Q28):** Only admin may modify package prices and catalog-level commercial settings; receptionists cannot. The application recognizes strictly two roles: **admin and receptionist**; the hypothetical third "owner" role is explicitly discarded.
+- **No Price Overrides at Checkout (`[USER—DECIDED]`, S31 Q29):** Issued package invoice lines always reflect the configured catalog price. Checkout-time price overrides or selling-price modifications are forbidden. Exceptional discounts are handled via standard invoicing: bill full catalog price (e.g. ₹4,500), collect agreed amount (e.g. ₹4,000), and admin terminally waives the residual balance (e.g. ₹500).
+- **Complimentary Packages Invoiced at Catalog Price (`[USER—DECIDED]`, S31 Q30):** Free or gifted packages are registered and invoiced at their ordinary catalog price (e.g. ₹4,500); admin subsequently waives the full invoice balance. There is no zero-selling-price package sale in MVP.
+- **Offering Management Deferred (`[USER—DECIDED]`, S31 Q31):** Self-service UI to disable existing package offerings, author new offerings, or configure arbitrary package rules is deferred post-MVP. Prices remain modifiable by admin.
+- **Unconfigured Price Blocks Sale (`[USER—DECIDED]`, S31):** Attempting to register or sell a package whose catalog price has not been configured in clinic setup is strictly blocked by backend/UI validation.
 - **Future-facing changes:** Catalog price updates apply to future purchases only. Historical issued invoices and purchased terms remain frozen (S28 D01).
 
 ## Open decisions and engineering audits
 
 1. **Reopening and corrections after closure (S28 O05, S30 Q12, Q13):** Deliberate and accidental closures are strictly non-reversible in MVP (`S30 Q12`, `Q13`). Generic void/cascade workflows remain deferred out of MVP.
 2. **Exact DDL and redemption integrity (O-15, O-17, O-18; S28 O09):** Atomic purchase-and-invoice issuance transaction, `start_date` column distinct from `purchased_at`, package-to-visit FK/redemption records, last-allowance race locking, and prevention of duplicate submissions.
-3. **Existing package migration (O-20, O-28; S28 O08, S30 Q32–Q36):** Import strategy and mapping for active patient packages from legacy data remain conditional on live data availability.
+3. **Existing package migration (O-20, O-28; S28 O08, S30 Q32–Q36, S31 Q32–Q36):** Import strategy and mapping for active patient packages from legacy data remain conditional on live data availability (determined by Q32).
 
 ### Dropped Scenarios from this Decision Round
 - **Clinical Reclassification during Active Package (S30 Q17):** Dropped as an invalid clinical scenario. Moving patients mid-course between Routine and Rehabilitation will not occur; tentative refund/waiver discussion during exploratory brainstorming is explicitly not approved policy.
+- **Complaint Reopening Independent of Packages (S31 Q18):** Dropped from package scope. Closed or Completed packages never reopen under any subsequent clinical complaint action; active packages strictly prevent complaint closure. Future complaint reopening rules belong to complaint-module design.
+- **Cross-Complaint Package Coverage Impossibility (S31 Q24):** Rejected as operationally implausible. Packages are strictly bound to one complaint; a visit recorded for knee Complaint A cannot pull allowances from a shoulder Complaint B package. The knee visit bills at the normal rate, while the shoulder package remains untouched.
 
-### Remaining Questionnaire Items (Q18–Q40 Baseline)
-Questions 18 through 40 of the reconstructed questionnaire remain unselected/unanswered. They form the clean baseline for subsequent decision sessions:
-- *Mistaken purchases & financial exceptions (Q18–Q26)*: complaint reopening, separate package invoices, mistaken unpaid/partially-paid/fully-paid purchases, visit attribution correction, waiver effect on coverage.
-- *Package catalog & pricing (Q27–Q31)*: catalog prices for the 4 offerings, admin pricing permissions, sale price overrides, free packages, disabling offerings.
-- *Historical migration (Q32–Q36)*: active packages outside new system, import mechanism, incomplete paper data, legacy commercial terms, historical debt.
-- *Checkout & edge cases (Q37–Q40)*: standalone services coverage, different complaint selection warning, unpaid packages in Needs Attention, wrong-complaint committed visit correction.
+### Follow-Up Decision Reviews & Accepted MVP Behaviors (DR-01, DR-02)
+- **DR-01 — Future Generic Invoice and Line Voiding (Status: DEFERRED FOR POST-MVP REVIEW):** The owner requested recording a personal post-MVP review item regarding adding a generic mechanism to void/reverse entire invoices or single invoice lines across packages, visits, examinations, and standalone services. The owner evaluated this against proliferating special-case exceptions and accepted the MVP workaround (whole-invoice waiver + replacement invoicing). This is a document-level future review marker, not approval to build an application audit-log table or void engine in MVP.
+- **DR-02 — Whole-Balance Terminal Waiver (Status: ACCEPTED MVP BEHAVIOR):** A waiver applies to the entire remaining collectible invoice balance and terminally settles the invoice. It does not support arbitrary partial-value or single-line waivers in MVP.
+
+### Remaining Questionnaire Items (Q32–Q40 Baseline)
+- **Q32 — Active Packages Outside System (`UNANSWERED — FIRST NEXT QUESTION`):** On deployment day, are there active packages on paper/Excel to import? Options: A (real active packages), B (none, launch clean), C (discardable prototype/test data only).
+- **Q33–Q36 — Historical Migration (`UNANSWERED — CONDITIONAL ON Q32`):** Import method (Q33), incomplete paper records (Q34), legacy commercial terms (Q35), historical debt import (Q36).
+- **Q37–Q40 — Checkout & Edge Cases (`UNANSWERED`):** Standalone services coverage (Q37), different-complaint UI warning (Q38), unpaid packages in Needs Attention (Q39), erroneous committed visit correction (Q40).
 
 ## Evidence
 
@@ -155,4 +178,5 @@ Questions 18 through 40 of the reconstructed questionnaire remain unselected/una
 - [Voice session decision log, 2 November 2026](history/package_decision_log_2026-11-02_voice_session.md) — S28, D01–D14, 7 closure reasons, "Patient Stopped Attending" date rule, post-closure factual summary, rejection of queuing, N+1 renewal start.
 - [Pre-questionnaire decision log, 3 November 2026](history/clinic_package_decision_log_2026-11-03_pre_questionnaire.md) — S29, D01–D08, payment-independent activation, fixed 30-day review confirmed, mandatory post-review notes in MVP, active package blocks complaint closure, counter recording sequence.
 - [Reconstructed final decision questionnaire, 3 November 2026](history/package_module_questionnaire_reconstructed_2026-11-03.md) — S30, Q01–Q16 settled (package start date anchor, configurable daily cap default 1, closure irreversibility for clerical errors, renewal debt assist-not-block, justification immutability, 2 persistent query lists, nonpayment independence), Q17 dropped, Q18–Q40 unanswered baseline.
+- [Q18–Q40 questionnaire addendum, 3 November 2026](history/package_module_Q18-Q40_decision_addendum_2026-11-03.md) — S31, Q18–Q31 settled (single combined invoice, mistaken package refund/waiver workflows, Cash/UPI only, entitlement survival on waiver, admin-only pricing, no price override/free sale, no disable UI, unconfigured price block, internal display); DR-01/DR-02 logged; Q32–Q40 active baseline.
 - [Reconciliation register](reconciliation-2026-10-27.md) — Cross-module decisions, archive manifest, and A11 workstream.
