@@ -1,6 +1,6 @@
 # Packages
 
-Packages are required for MVP. This page incorporates the nine named package records through the **3 November 2026 call transcript and follow-up discussion log** (S25–S33), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), voice session decision log (S28), pre-questionnaire decision log (S29), reconstructed final decision questionnaire (S30), Q18–Q40 questionnaire addendum (S31), the final voice decision addendum (S32), and the call transcript discussion log (S33), as well as direct user clarifications.
+Packages are required for MVP. This page incorporates the thirteen named package and decision records through the **5 November 2026 discussion and technical review** (S25–S37), alongside the earlier Module 2 decisions. Status labels below reflect the reconciled decisions from the handover (S25), addendum (S26), discussion patch (S27, PKG-PATCH-2026-11-02-01), voice session decision log (S28), pre-questionnaire decision log (S29), reconstructed final decision questionnaire (S30), Q18–Q40 questionnaire addendum (S31), the final voice decision addendum (S32), the call transcript discussion log (S33), the upgrade design log (S34), Claude's prototype review (S35–S36), and the master catalog & upgrade discussion log (S37), as well as direct user clarifications.
 
 ## Established baseline
 
@@ -65,17 +65,17 @@ Packages are required for MVP. This page incorporates the nine named package rec
   - Accidental/mistaken closures (e.g. staff intending to close a knee package but closing a shoulder package) are **strictly non-reversible in MVP** (`S30 Q13`).
   - Defense against accidental loss is a **multi-step destructive confirmation dialog** displaying: patient name, exact complaint and package being closed, remaining allowances being forfeited, and an explicit warning that closure is permanent and irreversible, requiring affirmative confirmation.
 
-### Final Agreed Closure Reason Presets (`[USER—DECIDED]`, S28 D08, D09, S30 Q15)
+### Final Agreed Closure Reason Presets (`[USER—DECIDED]`, S28 D08, D09, S30 Q15, S37 §12, §22)
 
 The UI exposes selectable textual presets plus a custom editable free-text field (`S30 Q15`):
-1. **Duplicate Package Purchased**
-2. **Wrong Package Registered**
-3. **Patient Stopped Attending**
-4. **Patient Requested Termination**
-5. **Patient Deceased**
-6. **Doctor Advised Stopping Treatment**
-7. **Other — written reason required** (requires custom explanatory text)
+1. **Wrong Package Registered**
+2. **Patient Stopped Attending** (selectable strictly on Review Overdue; S28 D10)
+3. **Patient Requested Termination**
+4. **Patient Deceased**
+5. **Doctor Advised Stopping Treatment**
+6. **Other — written reason required** (requires custom explanatory text)
 
+*Deferred Preset (`S37 §12, §22`):* "Duplicate Package Purchased" is deferred from the active MVP reason set. Strict purchase blocking already prevents concurrent same-complaint packages, and "Wrong Package Registered" covers clerical misregistration.
 *Explicitly rejected candidate labels:* "treatment completed early" (that is Completed), "clinic discontinued service", vague "clinic-initiated / administrative correction", "Nonpayment" (nonpayment does not trigger closure; S30 Q14), and "medical contraindication". "Doctor Advised Stopping Treatment" refers to stopping the entire course, not altering a single modality.
 
 ### Special Validation on "Patient Stopped Attending" (`[USER—DECIDED]`, S28 D10, D11)
@@ -185,19 +185,42 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 - **DR-01 — Future Generic Invoice and Line Voiding (Status: DEFERRED FOR POST-MVP REVIEW):** The owner requested recording a personal post-MVP review item regarding adding a generic mechanism to void/reverse entire invoices or single invoice lines across packages, visits, examinations, and standalone services. The owner evaluated this against proliferating special-case exceptions and accepted the MVP workaround (whole-invoice waiver + replacement invoicing). This is a document-level future review marker, not approval to build an application audit-log table or void engine in MVP.
 - **DR-02 — Whole-Balance Terminal Waiver (Status: ACCEPTED MVP BEHAVIOR):** A waiver applies to the entire remaining collectible invoice balance and terminally settles the invoice. It does not support arbitrary partial-value or single-line waivers in MVP.
 
-### Package Upgrade Proposal (Under Design — Pending Scope Decision) (`[PROPOSED]`, S33 §5)
-- **Real requirement:** A patient who bought a 10-visit Routine or Rehabilitation package may later ask to pay the difference and obtain the corresponding 26-visit package.
-- **Scope boundary:** Same-category upgrade only (Routine 10 → Routine 26; Rehabilitation 10 → Rehabilitation 26). Cross-category upgrade is excluded.
-- **Entitlement and economics if approved:**
-  - Total allowance becomes 26 visits including those already consumed (net increase of +16 visits, not 10 + 26).
-  - Additional charge is the difference between the 26-visit and 10-visit offering catalog prices, recorded as a genuine additional invoice line charge. Past payments remain attached to their original invoice; a waiver is not a payment transfer.
-  - Original package's coverage-start anchor (`start_date`) governs the 30-day review milestone (e.g. original start 1 Nov, upgrade requested 11 Nov → review milestone is 30 Nov, not a newly restarted 30 days).
-- **Preferred architecture:** Linked upgrade record / dependent "upgrade package" referencing parent 10-visit package ID. Not independently purchasable. Original Completed/Closed history is not rewritten or reactivated.
-- **Safeguards to enforce:** Deny standalone upgrade creation, duplicate upgrades, mismatched complaint/category, and double-counted visits.
-- **Open design checkpoints awaiting decision:**
-  - *Eligibility after completion:* Upgrade only while original 10-visit package is Active, or also after it reaches Completed?
-  - *Time window:* If post-completion upgrades are permitted, is there an elapsed-time limit?
-  - *MVP Scoping:* User is receptive if reasonably bounded, but not committed to shipping in MVP; kept as an open proposal under design.
+### Package Upgrade Specification (`[USER—DECIDED / LOCKED]`, S34, S37 §16–25)
+- **Real requirement:** A patient who purchased a 10-visit Routine or Rehabilitation package may later pay the price difference and upgrade to the corresponding 26-visit package.
+- **Scope boundary:** Same-complaint, same-category upgrade only (Routine 10 → Routine 26; Rehabilitation 10 → Rehabilitation 26). Cross-category upgrade, downgrade, or upgrade above 26 visits are excluded.
+- **Parent Package Eligibility (`S37 §21–22`):**
+  - The original 10-visit package must be in a terminal lifecycle state: naturally **`Completed`** (all 10 visits consumed), or **`Closed` on or after its own review date**.
+  - Packages manually closed *before* their own review date do not qualify for an upgrade.
+  - **No Closure-Reason Veto (`S37 §22`):** The recorded closure reason does not automatically disqualify an upgrade. Admin sees the closure context in the confirmation dialog and decides under clinical discretion whether to proceed.
+- **Upgrade Window:** The latest opportunity to initiate an upgrade is the **30th inclusive calendar date** counted from the original 10-visit package's coverage start date (`start_date`). Upgrades beyond Day 30 are blocked.
+- **Fixed Extension Allowance (`S37 §21`):**
+  - An upgrade grants exactly **16 additional covered visits**.
+  - Unused credits from a parent package closed at e.g. 8/10 are **not restored or carried over** (total usable visits across the two records is 24 in that scenario).
+- **Review Anchor Preserved (`S34 §3`, `S37 §14`):**
+  - The extension inherits the **original package coverage start date (`start_date`)** for its Day-30 review milestone.
+  - It does *not* grant a newly restarted 30-day review period. Passing Day 30 is a soft review milestone, not automatic expiry.
+- **Pricing Basis Formula (`S37 §16`):**
+  $$\text{upgrade\_charge} = \max(0, \text{current\_price\_26} - \text{original\_10\_invoiced\_charge})$$
+  - Calculated by subtracting the **original short-package purchase-line invoiced charge**, not cash collected.
+  - Any unpaid balance on the original package invoice remains due on that original invoice.
+  - Previous waivers on the original charge remain concessions and are not added back or clawed back.
+  - Floored strictly at ₹0 (no negative upgrade invoice or automatic cash refund; any actual cash reimbursement must follow the separate authorized refund workflow).
+- **Calculated-Zero Upgrade Invoicing & Settlement (`S37 §25`):**
+  - When the price difference is zero, issue and return the invoice showing the calculated ₹0 charge first.
+  - Separate settlement follows via **Mark as paid**, with no payment row and zero collections recorded.
+  - Mixed invoices containing an upgrade and positive charges follow ordinary settlement.
+- **Narrow UI Confirmation Flow (`S37 §21`):**
+  - Upgrades are initiated strictly from the eligible original package's detail/history view (click "Upgrade"). There is no independent catalog upgrade product.
+  - Displays a preselected narrow confirmation dialog: original package, complaint, category, usage/closure context, nonblocking invoice-level refund context, +16 visits, and calculated charge.
+  - Admin clicks Proceed; complaint, category, and custom dates cannot be altered by the operator.
+- **Daily Limit Inheritance (`S37 §24`):**
+  - Copies the parent's current `max_visits_per_day` setting at upgrade purchase time. Admin may subsequently adjust the extension's cap under normal admin authority.
+- **One Upgrade per Original Package (`S37 §24`):**
+  - One upgrade opportunity per original package. If the upgrade package is subsequently closed unused, the original's upgrade opportunity has been permanently consumed; no second upgrade or retry exception exists.
+- **Database Architecture & Naming (`S37 §5, §13`):**
+  - `package_catalog` represents offering definition templates.
+  - `packages` represents individual purchased complaint-specific entitlements, with `package_kind` (`STANDARD` vs `UPGRADE`) and `parent_package_id` self-FK.
+  - Visits link to their covering package via nullable `visits.package_id`.
 
 ### Questionnaire Completion & Developer Acceptance Checks
 The 40-question package questionnaire (**Q01–Q40**) is **100% complete and closed for business decisions**. All items have been decided, dropped as invalid scenarios, or explicitly deferred to separate future modules.
@@ -222,4 +245,7 @@ Developer acceptance checks for implementation testing include:
 - [Q18–Q40 questionnaire addendum, 3 November 2026](history/package_module_Q18-Q40_decision_addendum_2026-11-03.md) — S31, Q18–Q31 settled (single combined invoice, mistaken package refund/waiver workflows, Cash/UPI only, entitlement survival on waiver, admin-only pricing, no price override/free sale, no disable UI, unconfigured price block, internal display); DR-01/DR-02 logged; Q32–Q40 active baseline.
 - [Final voice decision addendum, 3 November 2026](history/package_module_final_voice_decision_addendum_2026-11-03_Q32_onwards.md) — S32, Q32–Q40 settled (paper packages on paper, digitization deferred to separate module, Q37 flat visit coverage, Q38 nonblocking warning, Q39 general descending invoice dues, Q40 committed care unchanged); Q01–Q40 questionnaire formally complete.
 - [Call transcript and follow-up discussion log, 3 November 2026](history/package_call_transcript_discussion_log_2026-11-03_2231_IST.md) — S33, confirmed admin refund authority (T73), freeze/pause rejected for MVP, Routine=Regular synonymy, full entitlement on partial payment, and 10→26 package upgrade proposal.
+- [Package upgrade discussion and schema design log, 4 November 2026](history/package_upgrade_design_discussion_log_2026-11-04_0220_IST.md) — S34, 10→26 upgrade economics, linked extension concept, Day-30 window and zero price floor.
+- [Claude upgrade audit and scratch prototype, 4–5 November 2026](history/claude/response.md) — S35 & S36 (response.md and package_upgrade_prototype_and_test_results_2026-11-04.md), reported scratch-model concurrency and guardrail evidence.
+- [Catalog identity and master package discussion log, 4–5 November 2026](history/catalog_identity_discussion_2026-11-04.md) — S37, locked canonical service name immutability (D01), locked package upgrade specification (pricing, +16 allowance, terminal eligibility, refund-aware confirmation, calculated-zero settlement, daily limit copying), admin-only MVP reaffirmation, ordinary care unblocked by debt, and future receptionist debt restrictions.
 - [Reconciliation register](reconciliation-2026-10-27.md) — Cross-module decisions, archive manifest, and A11 workstream.

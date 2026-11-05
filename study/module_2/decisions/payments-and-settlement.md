@@ -55,10 +55,20 @@ Daily collections sum actual dated positive payment rows, including receipts on 
 
 No separately numbered/printed/sent patient payment receipt artifact is required. Confirm saved amount, methods, state, and balance only after backend-confirmed success; failed/unknown outcomes cannot claim success. Preserve the form for manual retry after confirmed rollback; lost responses require the separate idempotency audit (R58–R61).
 
-## Package payment interaction and refund workflows — S25–S33 reconciliation
+## Package payment interaction and refund workflows — S25–S37 reconciliation
 
 - **Payment-Independent Package Activation (`[USER—DECIDED]`, S29 D04):** A package purchase invoice's balance is financially independent from package entitlement. Registration activates the package immediately regardless of whether ₹0, partial, or full payment is received. Unpaid balances do not suspend, expire, or close package coverage.
 - **Financial Waiver Entitlement Invariance (`[USER—DECIDED]`, S31 Q25):** Waiving a package purchase invoice (e.g. for a complimentary package) settles the financial receivable only; the package remains active with all 10 or 26 covered visits intact.
+- **Package Upgrade Financial Rules (`[USER—DECIDED / LOCKED]`, S37 §16, §24, §25):**
+  - **Pricing Formula:** The upgrade invoice charge is calculated as:
+    $$\text{upgrade\_charge} = \max(0, \text{current\_price\_26} - \text{original\_10\_invoiced\_charge})$$
+    Subtracting the original short-package purchase-line invoiced charge ensures unpaid receivables remain on the original invoice without being charged twice.
+  - **Waivers Preserved:** If the original package charge was partially or fully waived, that waiver remains a valid concession; waived money is not added back or clawed back into the upgrade calculation.
+  - **Zero-Floor & Refunds:** Floored strictly at ₹0. A negative price difference does not create a negative invoice line or an automatic cash refund; any actual cash reimbursement must follow the separate authorized refund workflow.
+  - **Calculated-Zero Settlement (`S37 §25`):** If the calculated price difference is zero, issue and return the invoice with the ₹0 charge, followed by a separate **Mark as paid** settlement action with no payment row and zero collections.
+  - **Nonblocking Invoice-Refund Context (`S37 §24, §25`):** Refunds recorded against the original package's invoice are displayed in the upgrade confirmation dialog as invoice-level context. Refunds do not automatically block the upgrade; admin exercises discretion after inspecting invoice details.
+- **Ordinary Care Unblocked by Debt (`[USER—DECIDED]`, S37 §11):** Real completed complaint-visits can always be recorded even if the patient has numerous unpaid visit invoices. The clinic cannot refuse to log care that has physically occurred. Logging care does not waive old or new debt.
+- **Future Receptionist Package-Debt Restriction (`[USER—SETTLED FUTURE POLICY]`, S37 §10, §22):** When a receptionist role is introduced post-MVP, reception cannot sell an additional package if the patient has *any* package-linked purchase invoices that remain unsettled (UNPAID or PARTIALLY_PAID), across all complaints and older purchases. Admin retains discretion to proceed despite debt.
 - **Planned Refund Module (`[USER—DECIDED]`, S31 Q22, S33 §4):** The refund module is in scope and being built. Every recorded refund requires **admin-only authorization (T73)** and a **mandatory, non-empty reason** explaining the reimbursement. Early termination settlements and refunds are discretionary case-by-case clinic decisions; software does not automate or guarantee prorated refunds.
 - **Strict Tender Boundaries (`[USER—DECIDED]`, S31 Q22):** Payment methods are strictly **Cash and UPI only**. No patient credit wallet, no unallocated patient balance, no inter-invoice payment reallocation, and no dummy tender methods exist.
 - **Mistaken Package Financial Correction (`[USER—DECIDED]`, S31 Q20–Q23):**
