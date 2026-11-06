@@ -5,7 +5,7 @@ These instructions apply to work in this directory. When a user supplies new log
 ## Authority and evidence
 
 - The six topic pages and the reconciliation decision register are the working decision records. The tracker records current interpretations and outstanding work alongside historical attribution. Read their present contents rather than assuming their current cutoff or status.
-- **Business Scope Status:** As of 5 November 2026 (incorporation of S34–S37), all commercial/business questions in Module 2 are 100% locked (`User-review rows = 0` in the tracker). No package, fee, pricing, or payment rules are open for business redesign.
+- **Business Scope Status:** As of 5 November 2026 (incorporation of S34–S37), all commercial/business questions in Module 2 are settled (`User-review rows = 0` in the tracker). Note that while package upgrade business behavior is locked, shipping it in MVP remains conditional on bounded engineering effort (`S34 §6` item 6 / line 134), with exact database design and concurrency protections remaining an open technical audit (`A11`/`N51`).
 - **Master Unresolved & Audit Register:** All remaining open items are strictly categorized in [`UNRESOLVED_AND_AUDIT_REGISTER.md`](UNRESOLVED_AND_AUDIT_REGISTER.md):
   1. *Category A:* 10 Technical Implementation Audits (`A01`–`A10`, `N51`: DDL, composite keys, row locking, idempotency, safe views).
   2. *Category B:* 4 Legacy Schema Dispositions (`N09`–`N11`, `N23`: vitals, alerts, timeline events).
@@ -15,6 +15,13 @@ These instructions apply to work in this directory. When a user supplies new log
 - Distinguish explicit user decisions, reported clinic-owner positions, proposals, assumptions and unresolved questions. A later date or an assistant suggestion alone is not approval. Apply explicit corrections only to the subjects they address. If a conflict cannot be resolved from the evidence, record it as open and ask a focused question when an answer is needed.
 - Respect the user's selected sources. Do not incorporate excluded material. If a known later source is excluded or unavailable and may affect a topic, clearly mark the source cutoff and the limitation. Do not describe a cutoff snapshot as verified latest policy.
 - Business decisions are not proof that application behavior, database schema, deployment, enforcement or tests exist. Technical implementation audits must be resolved in DDL, migrations, and code.
+
+## Decision coverage and completion
+
+1. Before editing, list each decision in scope with its controlling source and section. State the operative rule and its conditions, exceptions, and scope. Preserve distinctions such as approved business behavior versus conditional delivery and an example versus a requirement.
+2. Search by source ID, decision ID, and related wording. Inspect all relevant current records, including topic pages, the README, the decision and audit registers, tracker rows, and acceptance checks. For each location, record the file and section or row ID and mark it **update**, **already correct**, or **historical**. If an affected current record is unavailable or outside the requested scope, mark it **unverified** or **out of scope** and explain the limitation.
+3. After editing, review the actual diff against the controlling sources and reread the affected current records, including the saved values of any affected tracker rows. Check at least one concrete scenario per changed rule, including any relevant boundary or exception. Each current record should lead to the same outcome. Search for superseded wording and account for remaining matches without rewriting historical evidence.
+4. Report the records and scenarios checked and identify any remaining conflicts or unavailable records. Call a decision reconciled only when the affected current records agree and that agreement has been verified. Passing model checks, valid workbook structure, or the absence of an old phrase do not establish agreement by themselves.
 
 ## Incorporating logs & resolving audits
 
