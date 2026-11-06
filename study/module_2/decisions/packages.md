@@ -15,7 +15,7 @@ Packages are required for MVP. This page incorporates the thirteen named package
 - Covered complaint-visits retain real ₹0 invoice lines with verified package coverage. A covered-only invoice is allowed only with at least one real line and backend validation. After issuance, offer only Mark as paid; record no payment and zero collections. This established Q01 decision is not reopened by the source logs (R32–R33, R74).
 - Examination/return and laboratory fees are independent patient-level charges, not complaint-visit redemptions. They do not consume complaint-package allowances or become covered solely by a complaint package (P05, P25). General examination/lapse-fee bands and their billing-only meaning remain governed by [examination fees](examination-fees.md), including S23.
 - A package-covered visit and a waiver are different facts. Preserve the actual eligible visit/coverage link; neither a zero-valued line nor payment status by itself establishes a redemption.
-- Individual standalone sessions are not presold in V1. Package coverage of standalone services is not settled by these logs.
+- Individual standalone sessions are not presold in V1. As settled in S32 Q37, separately billed standalone treatments remain independently payable and are not covered by complaint packages.
 - The user previously reported approximately 60–80% package use. This is a reported estimate, not verified data (P01).
 
 ## Offering and review directions through 3 November
@@ -47,12 +47,12 @@ Packages are required for MVP. This page incorporates the thirteen named package
   2. **Review Overdue (Next date onward):** When an active, non-exhausted package has remaining credits, display a stronger confirmation warning before covered treatment (offering Continue / Back / Go to Packages).
 - **Continuation authority:** Admin or staff may proceed with overdue covered visits under discretion; does not require per-visit admin preapproval (S27 N06).
 - **Post-review audit feed & dashboard queries (`[USER—DECIDED]`, S27 N07, S30 Q08, Q09):**
-  - The admin dashboard presents **two distinct query-derived lists**: (1) Overdue inactive packages with unused allowances, and (2) Actual post-review covered redemptions (`S30 Q09`).
+  - The admin dashboard presents **two distinct query-derived lists**: (1) Overdue inactive packages with unused allowances, and (2) Receptionist-authorized post-review covered redemptions (`S30 Q08, Q09`) — visits personally authorized by an admin are excluded from this Needs Attention list for all admins, as admin authorization does not require self-review.
   - These are **persistent query-derived views** that remain visible while their criteria remain unresolved; they are **not time-based repeating push notifications** or reminders.
   - When an admin personally authorizes a post-review covered visit, the committed visit is retained, but **no Needs Attention alert or notification ping is created for any admin** (`S30 Q08`).
-- **Post-review confirmation modal (`[USER—DECIDED]`, S30 Q10):** An explicit confirmation modal is required before committing **every single post-review covered visit**.
+- **Post-review confirmation modal (`[USER—DECIDED]`, S30 Q10):** An explicit confirmation modal is required before committing **every single post-review covered visit for all users** (both admin and future receptionist; `S30 Q10`).
 - **Post-review justification notes in MVP (`[USER—DECIDED]`, S29 D06, S30 Q06, Q07, Q11):** Adopted for MVP. Mandatory for future receptionists; optional for admin. Explains why remaining benefits are consumed after review (e.g. Diwali clinic closure for 2–3 days); does not alter review dates or allowances.
-  - **Frequency (`S30 Q06`):** Mandatory for **each individual post-review covered visit**; blanket package-level or daily justifications are strictly forbidden.
+  - **Frequency (`S30 Q06`):** When recorded (mandatory for future receptionists; optional for admin), a separate justification note is required for **each individual post-review covered visit** (`S30 Q06`); blanket package-level or daily justifications are strictly forbidden.
   - **Immutability (`S30 Q07`):** Submitted justification notes are **completely immutable for all users, including admin**. No edit backdoor or correction workflow exists in MVP.
   - **Typing assistance (`S30 Q11`):** In the UI, reusable suggestions are surfaced via browser-native autocomplete/history only for MVP; a central clinic preset library is deferred. The authoritative submitted text is persisted server-side with the specific committed visit.
 
@@ -67,7 +67,7 @@ Packages are required for MVP. This page incorporates the thirteen named package
 
 ### Final Agreed Closure Reason Presets (`[USER—DECIDED]`, S28 D08, D09, S30 Q15, S37 §12, §22)
 
-The UI exposes selectable textual presets plus a custom editable free-text field (`S30 Q15`):
+The UI exposes selectable textual presets plus a custom editable free-text field (`S30 Q15`). Storage requires recording predefined selectable textual presets plus a custom 'Other' text reason, **ruling out a hardcoded PostgreSQL enum** (`S28 D08`), so new textual reasons and custom text do not require database migrations. Exact physical column definition and table structure remain an engineering design choice:
 1. **Wrong Package Registered**
 2. **Patient Stopped Attending** (selectable strictly on Review Overdue; S28 D10)
 3. **Patient Requested Termination**
@@ -93,21 +93,21 @@ The UI exposes selectable textual presets plus a custom editable free-text field
   - The purchase invoice retains its existing financial state until an authorized payment or final waiver is executed. The package module never computes an automatic prorated refund.
 - **Nonpayment Never a Closure Trigger (`[USER—DECIDED]`, S30 Q14):**
   - Nonpayment alone does not auto-close or ordinarily close a package; zero-paid packages remain active until deliberate manual closure.
-  - Valid early closure patterns are: (1) patient requested termination, (2) patient stopped attending (waited until after review date), or (3) mistaken registration.
+  - Typical early closure patterns described by the owner are: (1) patient requested termination, (2) patient stopped attending (normally closed after review date), or (3) mistaken registration. Admin preserves discretionary authority to close anytime for other valid clinical/operational reasons (using the agreed presets or 'Other' with custom text; S28 D08, S30 Q14).
   - Subsequent payment settles the old invoice receivable only and **never reactivates** a closed package; resuming treatment requires purchasing a new package.
 - **Post-closure factual summary (`[USER—DECIDED DIRECTION]`, S28 D06):**
   - Immediately post-closure, display a summary: purchased price, total collected, remaining invoice balance, elapsed time/days, used visits, and relevant dates.
   - Provide direct navigation links to the purchase invoice (for collection or admin final waiver) and to the refund workflow (when built).
 - **Closed Package History Visibility (`[USER—DECIDED]`, S30 Q16):** Completed and Closed packages remain visible in patient history under a dedicated "Completed/Closed" section showing original allowance, usage, closure reason, and associated invoice link.
 - **Mistaken Package Handling & Workarounds (`[USER—DECIDED]`, S31 Q20, Q21, Q22, Q23):**
-  - **Unpaid single-line invoice (Q20):** Admin closes the mistaken package (with reason "Duplicate Package Purchased" or "Wrong Package Registered"); if the invoice contains only that package and ₹0 paid, admin executes a terminal whole-invoice waiver. The closed package is never reinstated.
+  - **Unpaid single-line invoice (Q20):** Admin closes the mistaken package (with reason "Wrong Package Registered" or custom reason); if the invoice contains only that package, no visits were used, and ₹0 paid, admin executes a terminal whole-invoice waiver. The closed package is never reinstated.
   - **Unpaid mixed invoice (Q21):** If an invoice contains an erroneous package (e.g. ₹4,500) and legitimate charges (e.g. ₹350 exam) with ₹0 paid, selective line voiding is not supported in MVP. Admin closes the erroneous package with reason, terminally waives the entire original invoice (₹4,850), and creates a clean replacement invoice for the legitimate charges (₹350 exam). If the exam was already paid, admin closes the package and terminally waives the remaining package balance (₹4,500).
   - **Partially paid mistaken package (Q22):** In mixed cases with partial collection (e.g. ₹4,850 invoice with ₹1,500 paid = ₹350 exam + ₹1,150 package): (1) close erroneous package with reason, (2) record a ₹1,150 refund against the original invoice in the planned refund module with a mandatory non-empty reason, (3) terminally waive residual balance on old invoice, and (4) if replacement package is purchased, issue a fresh invoice for the correct package and enter ₹1,150 as a new payment (Cash/UPI).
   - **Fully paid mistaken package (Q23):** If the entire package charge (₹4,500) was collected: close package with reason, record full ₹4,500 refund in the planned refund module with a mandatory reason, and if replacement package is purchased, issue new invoice and record new ₹4,500 payment.
 - **Planned Refund Module & Tender Boundaries (`[USER—DECIDED]`, S31 Q22):**
   - The refund module is in scope and being built. Every recorded refund requires a **mandatory non-empty reason** explaining why.
   - Payment methods are strictly **Cash and UPI only**. Patient credit wallets, inter-invoice payment transfers, and dummy payment methods are explicitly rejected.
-  - The owner explicitly accepts the gross-cash reporting caveat (recording refund + new payment balances net cash in the drawer, but reports will show gross cash out and in); extra verification of momentary physical cash handovers or additional audit subsystems are rejected.
+  - The owner approved recording separate refund and new-payment entries, with a mandatory reason for each refund, as sufficient clinic bookkeeping without a credit wallet or physical cash verifier; the assistant's gross-cash reporting warning was noted but is not an approved policy requirement or extra audit hurdle (S31 Q22).
 - **Financial Waiver Does Not Revoke Entitlement (`[USER—DECIDED]`, S31 Q25):** Full invoice waiver of a valid package purchase settles the financial receivable only; the package remains active with all 10 or 26 covered visits usable.
 - **Closure Presets Exclude "Refunded" (`[USER—DECIDED]`, S31 Q26):** "Refunded" is not an approved package closure preset; refunds are distinct transactions handled via the refund module with their own mandatory reasons.
 - **No Retroactive Coverage (`[USER—DECIDED]`, S31):** Past billed visits cannot be retroactively converted to package-covered visits after correcting a complaint or package registration mistake.
@@ -132,6 +132,7 @@ The UI exposes selectable textual presets plus a custom editable free-text field
   - When a replacement package is registered on Date $T$, the system checks whether any package has covered a visit for this complaint today:
     - **If YES:** Coverage and the review clock start on **Day T+1 (tomorrow)**. This ensures that a patient who already received their 1-per-day covered visit today on an exhausted package cannot receive an unbilled second covered treatment from the new package on that same date (`S29 D02`, `S30 Q01`).
     - **If NO:** Coverage and the review clock start **Today (Day T)** immediately (`S30 Q02`). For example, if an overdue package was closed after a multi-day absence without treatment today, or a mistaken package was registered and closed without treatment, the replacement package is immediately active and covers today's visit.
+- **Automated Checkout Selection & No Bypass Toggle (`[USER—DECIDED]`, S29 §2, S25–S26):** For eligible complaint-treatment visits, the applicable active package is selected automatically at checkout. There is no arbitrary everyday 'turn off package' switch or toggle to bypass eligible coverage for a routine visit.
 - **No Complex Picker:** Because overlapping eligible entitlements for the same complaint cannot exist, checkout requires no entitlement selection picker (S28 D14).
 - **Cross-Complaint Warning Notice (`[USER—DECIDED]`, S32 Q38):** When a patient has an active package for one complaint (e.g. knee) and staff selects a different complaint (e.g. shoulder) for today's treatment:
   - The UI displays a **nonblocking informational warning notice** identifying the active package on the other complaint.
@@ -142,7 +143,7 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 ## Payment and activation
 
 - **Review clock anchor (`[USER—DECIDED]`, S30 Q01, Q02):** The review clock begins on the **package start date (`start_date`)**, which is $T$ or $T+1$ based on prior same-day coverage, irrespective of payment collection date.
-- **Payment-independent activation (`[USER—DECIDED]`, S29 D04, S33 §2):** Registration activates the package immediately regardless of payment collected. ₹0 received, partially paid, or fully paid all activate coverage.
+- **Payment-independent activation (`[USER—DECIDED]`, S29 D04, S30 Q01–Q02, S33 §2):** Registration grants the package's full entitlement usable from its valid start date (`start_date`: $T$ or $T+1$ based on prior same-day coverage under `S30 Q01–Q02`), regardless of whether ₹0, partial, or full payment is received. A replacement package with `start_date = T+1` cannot cover visits today, regardless of payment. Unpaid balances do not suspend, expire, or close package coverage.
   - **Full entitlement granted (`[CONFIRMED]`, S33 §2):** The purchased package receives its full configured visit entitlement (10 or 26) in software immediately. Neither partial payment nor an informal payment deadline automatically reduces coverage, blocks visits, closes the package, or alters the offering.
   - **Illustrative owner arithmetic vs software (`[CONFIRMED]`, S33 §2):** The clinic owner's manual per-visit pricing math (e.g. valuing the first 10 visits at package price and subsequent visits at ordinary per-visit rates) is an illustrative manual mental model, not an automated entitlement algorithm. If the clinic permits a 17th package-covered visit despite a ₹3,000 partial payment, that is allowed. Staff see outstanding amount indicators in relevant patient workflows and decide whether to continue treating, request payment, or explicitly close the package.
   - Unpaid balance does not automatically pause, expire, or close coverage; stopping coverage requires a deliberate authorized manual package closure. Purchase invoice receivable remains financially independent. Retires the earlier `OPEN—OWNER` payment-gating marker.
@@ -185,13 +186,17 @@ The UI exposes selectable textual presets plus a custom editable free-text field
 - **DR-01 — Future Generic Invoice and Line Voiding (Status: DEFERRED FOR POST-MVP REVIEW):** The owner requested recording a personal post-MVP review item regarding adding a generic mechanism to void/reverse entire invoices or single invoice lines across packages, visits, examinations, and standalone services. The owner evaluated this against proliferating special-case exceptions and accepted the MVP workaround (whole-invoice waiver + replacement invoicing). This is a document-level future review marker, not approval to build an application audit-log table or void engine in MVP.
 - **DR-02 — Whole-Balance Terminal Waiver (Status: ACCEPTED MVP BEHAVIOR):** A waiver applies to the entire remaining collectible invoice balance and terminally settles the invoice. It does not support arbitrary partial-value or single-line waivers in MVP.
 
-### Package Upgrade Specification (`[USER—DECIDED / LOCKED]`, S34, S37 §16–25)
+### Package Upgrade Specification (`[USER—DECIDED BUSINESS DESIGN / CONDITIONAL MVP INCLUSION]`, S34 §6, S37 §16–25)
+
+*Delivery Scope Status:* The business rules and economic design below are fully settled through S37. However, shipping upgrades in MVP remains conditional on bounded engineering effort (`S34 §6` item 6 / line 134), with exact database schema and concurrency protections remaining an open technical audit (`A11`/`N51`).
+
 - **Real requirement:** A patient who purchased a 10-visit Routine or Rehabilitation package may later pay the price difference and upgrade to the corresponding 26-visit package.
 - **Scope boundary:** Same-complaint, same-category upgrade only (Routine 10 → Routine 26; Rehabilitation 10 → Rehabilitation 26). Cross-category upgrade, downgrade, or upgrade above 26 visits are excluded.
 - **Parent Package Eligibility (`S37 §21–22`):**
   - The original 10-visit package must be in a terminal lifecycle state: naturally **`Completed`** (all 10 visits consumed), or **`Closed` on or after its own review date**.
   - Packages manually closed *before* their own review date do not qualify for an upgrade.
   - **No Closure-Reason Veto (`S37 §22`):** The recorded closure reason does not automatically disqualify an upgrade. Admin sees the closure context in the confirmation dialog and decides under clinical discretion whether to proceed.
+  - **No Prior Upgrade or Intervening Replacement (`S37 §22`):** The original 10-visit package must not have been previously upgraded, and there must be no intervening replacement package purchased for that complaint since this package ended. An intervening replacement disqualifies the original package from upgrade (preventing someone from finishing a replacement and later upgrading an older package within its 30-day window).
 - **Upgrade Window:** The latest opportunity to initiate an upgrade is the **30th inclusive calendar date** counted from the original 10-visit package's coverage start date (`start_date`). Upgrades beyond Day 30 are blocked.
 - **Fixed Extension Allowance (`S37 §21`):**
   - An upgrade grants exactly **16 additional covered visits**.
@@ -239,7 +244,7 @@ Developer acceptance checks for implementation testing include:
 - [Original handover, 28 October 2026](history/clinic_packages_handover_2026-10-28.md) — S25, baseline P01–P30.
 - [Subsequent addendum, 28–29 October 2026](history/clinic_packages_addendum_2026-10-28_to_2026-10-29.md) — S26, A31–A32, initial 26-cap leaning.
 - [Post-addendum discussion patch, 2 November 2026](history/clinic_packages_discussion_patch_2026-11-02_181036_IST.md) — S27, N01–N24, O-01–O-28, owner-confirmed 26 cap and 1/day limit, Sunday counting rule, role-gated closure, registration clock, payment gating reopened.
-- [Voice session decision log, 2 November 2026](history/package_decision_log_2026-11-02_voice_session.md) — S28, D01–D14, 7 closure reasons, "Patient Stopped Attending" date rule, post-closure factual summary, rejection of queuing, N+1 renewal start.
+- [Voice session decision log, 2 November 2026](history/package_decision_log_2026-11-02_voice_session.md) — S28, D01–D14, 7 closure reasons, "Patient Stopped Attending" date rule, post-closure factual summary, rejection of queuing, replacement only after prior termination; S30 later settled same-day start.
 - [Pre-questionnaire decision log, 3 November 2026](history/clinic_package_decision_log_2026-11-03_pre_questionnaire.md) — S29, D01–D08, payment-independent activation, fixed 30-day review confirmed, mandatory post-review notes in MVP, active package blocks complaint closure, counter recording sequence.
 - [Reconstructed final decision questionnaire, 3 November 2026](history/package_module_questionnaire_reconstructed_2026-11-03.md) — S30, Q01–Q16 settled (package start date anchor, configurable daily cap default 1, closure irreversibility for clerical errors, renewal debt assist-not-block, justification immutability, 2 persistent query lists, nonpayment independence), Q17 dropped, Q18–Q40 unanswered baseline.
 - [Q18–Q40 questionnaire addendum, 3 November 2026](history/package_module_Q18-Q40_decision_addendum_2026-11-03.md) — S31, Q18–Q31 settled (single combined invoice, mistaken package refund/waiver workflows, Cash/UPI only, entitlement survival on waiver, admin-only pricing, no price override/free sale, no disable UI, unconfigured price block, internal display); DR-01/DR-02 logged; Q32–Q40 active baseline.
