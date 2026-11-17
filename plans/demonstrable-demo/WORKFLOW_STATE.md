@@ -53,6 +53,8 @@ Setup validation: frontmatter, UI metadata, state coverage, initial state and wh
 
 Read this record before resuming. Announce slice/state/status and the pending human action. Execute only the current state; completing it does not authorize the next. Record the checkpoint and end the turn while awaiting the human. Natural-language approval of a clear pending transition is sufficient; questions, praise and silence are not approval.
 
+On resume, read the [18 November ticket follow-up](EVIDENCE.md#18-november-2026-ticket-follow-up) and check the current task and acceptance criteria before continuing the selected slice.
+
 Record implementation and learning progress separately. Re-read before updates to avoid overwriting another session's newer work. Preserve prior checkpoints and decision provenance; do not store secrets or fabricate evidence.
 
 ## Checkpoint history

@@ -10,6 +10,8 @@ Om accepted the approach of substantial AI assistance with deliberate human owne
 
 For delivery sessions, invoke `$delivery-learning-cycle` and resume [WORKFLOW_STATE.md](WORKFLOW_STATE.md). That record tracks the current slice, state, pending human contribution and actual evidence. The skill requires a human checkpoint between states; creating the workflow does not approve the implementation decisions below.
 
+Before continuing an existing slice, read the [18 November ticket follow-up](EVIDENCE.md#18-november-2026-ticket-follow-up) and recheck the affected task and acceptance criteria.
+
 | Document | Purpose |
 | --- | --- |
 | [README](README.md) | Scope, success criteria, work sequence, ownership, and compact deferred backlog |
